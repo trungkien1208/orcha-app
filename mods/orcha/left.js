@@ -37,8 +37,9 @@ const STATIONS = ["THINK", "CODE", "TEST", "DONE"];
 
 const bytes = (n) => (n >= GB ? `${(n / GB).toFixed(1)}G` : `${Math.max(1, Math.round(n / (1024 * 1024)))}M`);
 
-// Claude keeps a folder per project: the path with `/` and `.` as `-`.
-const claudeDir = (cwd) => `${home()}/.claude/projects/${cwd.replace(/[/.]/g, "-")}`;
+// Claude keeps a folder per project: the path with every character that is
+// not a letter or a digit as `-` (so `LARK_AUTOMATION` is `LARK-AUTOMATION`).
+const claudeDir = (cwd) => `${home()}/.claude/projects/${cwd.replace(/[^A-Za-z0-9]/g, "-")}`;
 
 // From the newest transcript: line 1 the model, line 2 the last tool call
 // (with the start of a shell command), line 3 the last reply's token usage.
@@ -50,6 +51,19 @@ const TRANSCRIPT_SCRIPT = [
   "printf '%s' \"$t\" | grep -o '\"usage\":{[^}]*}' | tail -n 1",
 ].join("\n");
 
+// Codex keeps its sessions by date; the newest one started in the folder:
+// line 1 its size (or "same"), then the model (else config.toml's), the last
+// tool call and the last turn's token usage in what was read.
+const CODEX_SCRIPT = [
+  'f=; for x in $(ls -t "$HOME"/.codex/sessions/*/*/*/*.jsonl 2>/dev/null | head -n 40); do head -c 6000 "$x" | grep -qF "\\"cwd\\":\\"$1\\"" && { f=$x; break; }; done',
+  'if [ -z "$f" ]; then sed -n \'s/^model *= *"\\(.*\\)"/\\1/p\' "$HOME/.codex/config.toml" 2>/dev/null | head -n 1; exit 0; fi',
+  // $2 is its size last time: unchanged, say so; grown, read only what was
+  // added (sessions reach tens of MB, mostly pictures).
+  's=$(wc -c < "$f" | tr -d " "); [ "$s" = "$2" ] && { echo same; exit 0; }; echo "$s"',
+  'from=1; [ -n "$2" ] && [ "$2" -lt "$s" ] && from=$(($2 + 1))',
+  "tail -c +\"$from\" \"$f\" | LC_ALL=C grep -oE '\"model\":\"[^\"]*|\"name\":\"[a-z_]+\",\"input\":\".{0,250}|\"last_token_usage\":\\{[^}]*\\}' | awk '/^\"model/{m=$0} /^\"name/{t=$0} /^\"last_token/{u=$0} END{sub(/^\"model\":\"/,\"\",m); print m; print t; print u}'",
+].join("\n");
+
 const READING = /^(Read|Grep|Glob|LS|WebFetch|WebSearch|Task|Agent|TodoWrite|ToolSearch)$/;
 const CHECKS = /\b(test|tests|jest|vitest|pytest|nextest|tsc|typecheck|lint|eslint|clippy|check)\b/;
 
@@ -59,6 +73,16 @@ function stationOf(toolLine) {
   const name = /"name":"([A-Za-z_]+)"/.exec(toolLine ?? "")?.[1];
   if (!name || READING.test(name)) return "THINK";
   if (name === "Bash") return CHECKS.test(/"command":"(.*)$/.exec(toolLine)?.[1] ?? "") ? "TEST" : "CODE";
+  return "CODE";
+}
+
+// Codex's station, from the command its last tool call ran: an edit is CODE,
+// checks are TEST, looking around (ls, cat, rg, git status) is THINK.
+function codexStation(toolLine) {
+  if (!toolLine) return "THINK";
+  if (/apply_patch|write_file|\bcat\s*>|>\s*\S+\.\w+/.test(toolLine)) return "CODE";
+  if (CHECKS.test(toolLine)) return "TEST";
+  if (/\b(ls|cat|rg|grep|find|head|tail|sed -n|git (status|log|diff|show))\b/.test(toolLine)) return "THINK";
   return "CODE";
 }
 
@@ -90,6 +114,7 @@ export default class Left {
     this.memory = new Map(); // terminal address → bytes
     this.changed = new Map(); // pane → { status, at }
     this.icons = {}; // project folder → emoji (orcha's project-icons.json)
+    this.codex = new Map(); // folder → { size, lines }: the last Codex session read
     // Projects opened or closed by their chevron, kept in this browser-like
     // store: the open project shows its agents unless closed; others when opened.
     this.opened = new Set(stored("orcha.opened"));
@@ -152,24 +177,50 @@ export default class Left {
 
   // Models by folder; contexts and stations by terminal. Shared only when
   // something changed.
+  // Models, contexts and stations by terminal: Claude's from its newest
+  // conversation in the folder, Codex's from its newest session there.
   readTranscripts(cx) {
     cx.spawn(async (cx) => {
-      const claude = panes().filter((p) => p.program?.key === "claude" && p.cwd && p.terminal);
+      const live = panes().filter((p) => p.cwd && p.terminal);
       const models = {};
       const contexts = {};
       const stations = {};
-      for (const cwd of new Set(claude.map((p) => p.cwd))) {
-        const r = await exec("sh", ["-c", TRANSCRIPT_SCRIPT, "sh", claudeDir(cwd)]);
-        if (r.code !== 0) continue;
-        const [model, tool, usage] = r.stdout.split("\n");
-        const label = modelLabel(model?.trim());
-        if (label) models[cwd] = label;
-        const context = contextOf(usage);
-        for (const p of claude.filter((p) => p.cwd === cwd)) {
-          stations[p.terminal] = stationOf(tool);
-          if (context) contexts[p.terminal] = context;
+      // `lines(cwd)` gives [model, last tool call, last usage], or null.
+      const read = async (kind, lines, station, context) => {
+        const mine = live.filter((p) => p.program?.key?.includes(kind));
+        for (const cwd of new Set(mine.map((p) => p.cwd))) {
+          const got = await lines(cwd);
+          if (!got) continue;
+          const [model, tool, usage] = got;
+          const label = modelLabel(model?.trim());
+          const used = context(usage);
+          for (const p of mine.filter((p) => p.cwd === cwd)) {
+            if (label) models[p.terminal] = label;
+            if (tool !== undefined) stations[p.terminal] = station(tool);
+            if (used) contexts[p.terminal] = used;
+          }
         }
-      }
+      };
+      const claude = async (cwd) => {
+        const r = await exec("sh", ["-c", TRANSCRIPT_SCRIPT, "sh", claudeDir(cwd)]);
+        return r.code === 0 ? r.stdout.split("\n") : null;
+      };
+      // Codex sessions are big: read again only when the file grew.
+      const codex = async (cwd) => {
+        const seen = this.codex.get(cwd);
+        const r = await exec("sh", ["-c", CODEX_SCRIPT, "sh", cwd, seen?.size ?? ""]);
+        if (r.code !== 0) return seen?.lines ?? null;
+        const out = r.stdout.split("\n");
+        if (out[0] === "same") return seen?.lines ?? null;
+        // No session in the folder: config.toml's model alone.
+        if (!/^\d+$/.test(out[0])) return [out[0]];
+        // What the new part did not say, the earlier part did.
+        const lines = out.slice(1, 4).map((line, i) => line || seen?.lines?.[i] || "");
+        this.codex.set(cwd, { size: out[0], lines });
+        return lines;
+      };
+      await read("claude", claude, stationOf, contextOf);
+      await read("codex", codex, codexStation, (usage) => Number(/"input_tokens":(\d+)/.exec(usage ?? "")?.[1] ?? 0) || null);
       this.publish({ models, contexts, stations });
       cx.notify();
     });

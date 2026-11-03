@@ -132,16 +132,19 @@ export function agentFacts() {
   return shared("orcha.agents") ?? { models: {}, stations: {} };
 }
 
-/** "claude-opus-5-5" → "Opus 5.5"; anything else as it is. */
+/** "claude-opus-5-5" → "Opus 5.5", "gpt-6.1-sol" → "GPT-6.1 Sol"; anything else as it is. */
 export function modelLabel(id) {
   const m = /^claude-([a-z]+)-(\d+)-(\d+)/.exec(id ?? "");
-  if (!m) return id || null;
+  if (!m) {
+    const g = /^gpt-([\d.]+)(?:-(.+))?$/.exec(id ?? "");
+    return g ? `GPT-${g[1]}${g[2] ? ` ${g[2][0].toUpperCase()}${g[2].slice(1).replace(/-/g, " ")}` : ""}` : id || null;
+  }
   return `${m[1][0].toUpperCase()}${m[1].slice(1)} ${m[2]}.${m[3]}`;
 }
 
-/** The model an agent pane runs, else its program's name. */
+/** The model an agent pane runs, else its program's short name ("Claude"). */
 export function modelOf(pane) {
-  return agentFacts().models[pane?.cwd ?? ""] ?? pane?.program?.name ?? "agent";
+  return agentFacts().models?.[pane?.terminal ?? ""] ?? pane?.program?.name?.replace(/ Code$/, "") ?? "agent";
 }
 
 export const row = () => h_flex().items_center();

@@ -34,7 +34,7 @@ export async function readTerminal(address) {
 /** The newest Claude conversation in `cwd` (Claude keeps one folder of them
  *  per project; orcha links every account's to ~/.claude's), or null. */
 export async function claudeTranscript(cwd) {
-  const dir = `${home()}/.claude/projects/${cwd.replace(/[/.]/g, "-")}`;
+  const dir = `${home()}/.claude/projects/${cwd.replace(/[^A-Za-z0-9]/g, "-")}`;
   const r = await exec("sh", ["-c", 'ls -t "$1"/*.jsonl 2>/dev/null | head -n 1', "orcha", dir]);
   return r.stdout.trim() || null;
 }

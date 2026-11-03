@@ -12,6 +12,7 @@ import { focused, panes, spaces, exec, readTextFile, home, shared, setShared, op
 import { tokens, button, icon, fuelGauge, readable } from "./ui.js";
 import { showSide } from "./sidetabs.js";
 import HandoffWatch from "./handoff-watch.js";
+import { refreshFuel } from "./accounts-data.js";
 
 // One call: branch line, changed files, totals, last commit, worktree count.
 const GIT_SCRIPT = [
@@ -69,7 +70,11 @@ export default class Panel {
     this.readGit(cx);
     this.readFuel(cx);
     cx.timer.every(3000, (cx) => this.readGit(cx));
-    cx.timer.every(30000, (cx) => this.readFuel(cx));
+    // Fuel goes stale unless someone asks the plans: once a minute ask them
+    // through orcha's limits.py (it skips accounts read under 2 minutes ago,
+    // as orcha in the terminal does), then read the cache again.
+    this.refreshFuel(cx);
+    cx.timer.every(60000, (cx) => this.refreshFuel(cx));
     this.watch = new HandoffWatch();
     cx.timer.every(60000, (cx) => this.watch.check(cx));
   }
@@ -114,6 +119,13 @@ export default class Panel {
       const limits = await readJson(`${home()}/.cache/orcha/limits/${account.id}.json`);
       this.fuel = { label: account.label ?? account.id, email: account.email ?? null, limits };
       cx.notify();
+    });
+  }
+
+  refreshFuel(cx) {
+    cx.spawn(async (cx) => {
+      await refreshFuel();
+      this.readFuel(cx);
     });
   }
 
