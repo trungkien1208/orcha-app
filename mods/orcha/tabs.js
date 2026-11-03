@@ -10,7 +10,7 @@
 import { div } from "gpui-kit";
 import { h_flex } from "gpui-base";
 import { spaces, panes, agents, run, openOverlay } from "herdr";
-import { tokens, icon, ownTitle, programIcon, stateColor, agentColor } from "./ui.js";
+import { tokens, icon, agentTitle, programIcon, stateColor, agentColor } from "./ui.js";
 
 const SHOWN = 6;
 
@@ -18,11 +18,13 @@ export default class Tabs {
   constructor(_cx) {}
 
   // A tab someone named keeps its name; else what its agent works on, else
-  // its program's own title, else the folder it is in, else its number.
+  // the folder it is in, else its program, else its number. Herdr names a tab
+  // after the agent it opens ("Codex", "Claude Code"): that is no name.
   label(tab, allPanes, byPane) {
-    if (tab.named) return tab.name;
     const lead = this.lead(tab, allPanes);
-    return byPane.get(lead?.pane)?.title || ownTitle(lead) || lead?.cwd?.split("/").pop() || lead?.program?.name || tab.name;
+    const program = lead?.program?.name?.toLowerCase();
+    if (tab.named && tab.name.toLowerCase() !== program) return tab.name;
+    return agentTitle(byPane.get(lead?.pane), lead) || lead?.cwd?.split("/").pop() || lead?.program?.name || tab.name;
   }
 
   // The tabs' shape: one height, round at the top, flat on the panes.

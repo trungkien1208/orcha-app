@@ -108,9 +108,23 @@ export function programIcon(program, size, color) {
   return program.tint ? svg(program.icon).size(size).flex_none().text_color(color) : image(program.icon).w(size).h(size).flex_none();
 }
 
-/** A terminal's own title, unless it is only its address (`t1`, `t1f`). */
+/** A title as agents set it, without their spinner or star in front
+ *  (`⠹ `, `✳ `) and the folder Codex adds at the end (` | my-app`). */
+export function cleanTitle(title, cwd) {
+  let t = (title ?? "").replace(/^[\u2800-\u28ff✳✶✻✽✢·*•◐◓◑◒⏺\s]+/u, "").trim();
+  const folder = cwd?.split("/").pop();
+  if (folder && (t === `| ${folder}` || t.endsWith(` | ${folder}`))) t = t.slice(0, -(folder.length + 2)).replace(/\|$/, "").trim();
+  return t || null;
+}
+
+/** A terminal's own title, cleaned, unless it is only its address (`t1`, `t1f`). */
 export function ownTitle(pane) {
-  return /^([\w-]+\/)?t[0-9a-f]+$/.test(pane?.title ?? "") ? null : pane?.title || null;
+  return /^([\w-]+\/)?t[0-9a-f]+$/.test(pane?.title ?? "") ? null : cleanTitle(pane?.title, pane?.cwd);
+}
+
+/** What an agent works on: its title, cleaned, else the pane's own title. */
+export function agentTitle(agent, pane) {
+  return cleanTitle(agent?.title, pane?.cwd) || ownTitle(pane);
 }
 
 /** What orcha read about agents (models by folder, stations by terminal). */

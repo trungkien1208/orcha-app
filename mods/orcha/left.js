@@ -26,6 +26,7 @@ import {
   projectTile,
   ago,
   RANK,
+  agentTitle,
 } from "./ui.js";
 import { ICON_OVERLAY } from "./icon.js";
 
@@ -219,7 +220,7 @@ export default class Left {
   agentCard(k, pane, agent) {
     const facts = agentFacts();
     const color = agentColor(k, pane.program);
-    const title = agent?.title || ownTitle(pane) || pane.program?.name;
+    const title = agentTitle(agent, pane) || pane.program?.name;
     const context = pane.terminal ? facts.contexts?.[pane.terminal] : null;
     const mem = pane.terminal ? this.memory.get(pane.terminal) : null;
     const status = pane.status ?? "idle";

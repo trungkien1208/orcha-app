@@ -7,7 +7,7 @@
 import { div } from "gpui-kit";
 import { h_flex } from "gpui-base";
 import { panes, agents, props, run } from "herdr";
-import { tokens, agentColor, programIcon, ownTitle, modelOf, icon, agentFacts, stateColor, tokensShort, ago, WORD } from "./ui.js";
+import { tokens, agentColor, programIcon, ownTitle, modelOf, icon, agentFacts, stateColor, tokensShort, ago, WORD, agentTitle } from "./ui.js";
 
 export default class Pane {
   constructor(_cx) {
@@ -65,7 +65,7 @@ export default class Pane {
     const bg = isAgent ? agentColor(k, p.program) : k.teal;
     const fg = k.chipText;
     const lone = panes().filter((x) => x.tab === p.tab).length === 1;
-    const task = isAgent ? agent?.title || ownTitle(p) : ownTitle(p) || p.program?.name || "shell";
+    const task = isAgent ? agentTitle(agent, p) : ownTitle(p) || p.program?.name || "shell";
     const name = isAgent ? modelOf(p).toUpperCase() : null;
     const context = isAgent && p.terminal ? agentFacts().contexts?.[p.terminal] : null;
     const showTask = !isAgent || !lone;

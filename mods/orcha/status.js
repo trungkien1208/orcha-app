@@ -5,7 +5,7 @@
 import { div } from "gpui-kit";
 import { h_flex } from "gpui-base";
 import { spaces, agents, panes, focused, shared, run } from "herdr";
-import { tokens, chip, countChip, icon, agentFacts, tokensShort } from "./ui.js";
+import { tokens, chip, countChip, icon, agentFacts, tokensShort, agentTitle } from "./ui.js";
 
 const clock = () => {
   const now = new Date();
@@ -59,8 +59,7 @@ export default class Status {
     const here = focused();
     const pane = panes().find((p) => p.pane === here?.pane);
     const agent = list.find((a) => a.pane === here?.pane);
-    const own = /^([\w-]+\/)?t\d+$/.test(pane?.title ?? "") ? null : pane?.title;
-    const task = agent?.title || own || pane?.program?.name || "";
+    const task = agentTitle(agent, pane) || pane?.program?.name || "";
     const git = shared("orcha.git");
     const quiet = (text) => div().text_color(k.barText + "99").child(text);
     return h_flex()

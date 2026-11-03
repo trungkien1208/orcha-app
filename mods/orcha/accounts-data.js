@@ -7,6 +7,7 @@
 // Keychain and the shared account folders stay orcha's business.
 
 import { readTextFile, writeTextFile, exec, hc, home, run, focused, agents, panes } from "herdr";
+import { agentTitle } from "./ui.js";
 import { readTable, writeKey } from "./config.js";
 import { claudeTranscript, readTerminal } from "./links.js";
 
@@ -133,7 +134,7 @@ export function focusedAgent() {
   const pane = panes().find((p) => p.pane === f.pane);
   if (!pane?.program?.agent) return null;
   const agent = agents().find((a) => a.pane === f.pane);
-  return { pane: f.pane, terminal: agent?.address ?? f.terminal, cwd: pane.cwd || f.cwd, program: pane.program, title: agent?.title ?? pane.title ?? "" };
+  return { pane: f.pane, terminal: agent?.address ?? f.terminal, cwd: pane.cwd || f.cwd, program: pane.program, title: agentTitle(agent, pane) ?? "" };
 }
 
 const sh = (script, ...args) => exec("sh", ["-c", script, "orcha", ...args]);
