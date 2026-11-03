@@ -7,7 +7,7 @@
 #
 # Run it again to update. Only orcha's own files are written
 # (layouts/orcha.json, themes/orcha-*, mods/orcha*), plus orcha's keys for the
-# orcha layout in keys.json (Cmd+, Cmd+O Cmd+Shift+F Cmd+F) and orcha's
+# orcha layout in keys.json (Cmd+, Cmd+O Cmd+Shift+F Cmd+F Cmd+L) and orcha's
 # colors when no theme is picked yet; Herdr's shipped files and your own are
 # left alone.
 set -eu
@@ -50,7 +50,7 @@ for mod in "$src"/mods/orcha*; do
   [ ! -e "$dest/mods/$name" ] || mv "$dest/mods/$name" "$stage/$name.old"
   mv "$stage/$name" "$dest/mods/$name"
 done
-# Cmd+, opens orcha's settings and Cmd+O / Cmd+Shift+F / Cmd+F open FIND
+# Cmd+, opens orcha's settings and Cmd+O / Cmd+Shift+F / Cmd+F / Cmd+L open FIND
 # while the orcha layout shows, and orcha's
 # colors are the theme unless the person already picked one (Settings › Look).
 python3 -I - "$dest" <<'PY'
@@ -72,11 +72,12 @@ def update(path, change):
 
 def bind(keys):
     mine = keys.setdefault("layout:orcha", {})
-    mine["cmd-,"] = "mod.open:orcha"
-    # FIND: a file by name, text in the project, text in the pane.
+    mine["cmd-,"] = "orcha.settings"
+    # FIND: a file by name, text in the project, text in the pane, links.
     mine["cmd-o"] = "orcha.find-file"
     mine["cmd-shift-f"] = "orcha.find-text"
     mine["cmd-f"] = "orcha.find-pane"
+    mine["cmd-l"] = "orcha.find-link"
     return True
 
 def colors(person):

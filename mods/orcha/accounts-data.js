@@ -7,10 +7,10 @@
 // Keychain and the shared account folders stay orcha's business.
 
 import { readTextFile, writeTextFile, exec, hc, home, run, focused, agents, panes } from "herdr";
+import { readTable, writeKey } from "./config.js";
 
 const LIMITS = () => `${home()}/.orcha/scripts/limits.py`;
 const CONFIG = () => `${home()}/.config/orcha/config.json`;
-const TOML = () => `${home()}/.config/orcha/config.toml`;
 
 async function readJson(path) {
   try {
@@ -90,9 +90,8 @@ export async function addAccount(name) {
 }
 
 // Hand-off settings ------------------------------------------------------
-// They live in orcha's config.toml under [orcha], shared with orcha in the
-// terminal (config/model.rs OrchaConfig). Only these keys are read and
-// written here, one `key = value` line each; the rest of the file is kept.
+// In orcha's config.toml under [orcha], shared with orcha in the terminal
+// (config/model.rs OrchaConfig).
 
 export const HANDOFF_DEFAULTS = {
   low_fuel_percent: 10,
@@ -102,69 +101,17 @@ export const HANDOFF_DEFAULTS = {
   switch_mode: "ask",
 };
 
-// Where [orcha] starts and ends in `lines`.
-function orchaSection(lines) {
-  const start = lines.findIndex((l) => /^\s*\[orcha\]\s*(#.*)?$/.test(l));
-  if (start < 0) return null;
-  let end = lines.length;
-  for (let i = start + 1; i < lines.length; i += 1) {
-    if (/^\s*\[/.test(lines[i])) {
-      end = i;
-      break;
-    }
-  }
-  return { start, end };
-}
-
-function parseValue(raw) {
-  const v = raw.replace(/\s+#.*$/, "").trim();
-  if (/^".*"$/.test(v)) return v.slice(1, -1).replace(/\\"/g, '"').replace(/\\\\/g, "\\");
-  if (/^-?\d+$/.test(v)) return Number(v);
-  if (v === "true" || v === "false") return v === "true";
-  return v;
-}
-
-const tomlValue = (v) => (typeof v === "number" || typeof v === "boolean" ? String(v) : `"${String(v).replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`);
-
 /** The hand-off settings, orcha's defaults filled in. */
 export async function readHandoff() {
-  const lines = ((await readTextFile(TOML())) ?? "").split("\n");
+  const table = await readTable("orcha");
   const out = { ...HANDOFF_DEFAULTS };
-  const section = orchaSection(lines);
-  if (!section) return out;
-  for (const line of lines.slice(section.start + 1, section.end)) {
-    const m = /^\s*([a-z_]+)\s*=\s*(.+)$/.exec(line);
-    if (m && m[1] in HANDOFF_DEFAULTS) out[m[1]] = parseValue(m[2]);
-  }
+  for (const key of Object.keys(HANDOFF_DEFAULTS)) if (key in table) out[key] = table[key];
   return out;
 }
 
-/** Sets one hand-off setting in config.toml. Null, or why it failed. */
-export async function writeHandoff(key, value) {
-  if (!(key in HANDOFF_DEFAULTS)) return `unknown setting ${key}`;
-  const before = await readTextFile(TOML());
-  const lines = (before ?? "").split("\n");
-  const line = `${key} = ${tomlValue(value)}`;
-  const section = orchaSection(lines);
-  if (!section) {
-    if (lines.length && lines[lines.length - 1] !== "") lines.push("");
-    lines.push("[orcha]", line, "");
-  } else {
-    const at = lines.slice(section.start + 1, section.end).findIndex((l) => new RegExp(`^\\s*${key}\\s*=`).test(l));
-    if (at >= 0) lines[section.start + 1 + at] = line;
-    else {
-      // After the section's last setting, before its trailing blank lines.
-      let end = section.end;
-      while (end > section.start + 1 && lines[end - 1].trim() === "") end -= 1;
-      lines.splice(end, 0, line);
-    }
-  }
-  try {
-    await writeTextFile(TOML(), lines.join("\n"), before);
-    return null;
-  } catch {
-    return "config.toml changed meanwhile. Try again.";
-  }
+/** Sets one hand-off setting. Null, or why it failed. */
+export function writeHandoff(key, value) {
+  return key in HANDOFF_DEFAULTS ? writeKey("orcha", key, value) : Promise.resolve(`unknown setting ${key}`);
 }
 
 // Hand-off ---------------------------------------------------------------

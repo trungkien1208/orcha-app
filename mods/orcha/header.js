@@ -5,8 +5,8 @@
 // leaves them room. Dragging it moves the window.
 //
 // The header is the one copy of orcha that listens for its keys (keys.json,
-// layout:orcha): orcha.find-file (⌘O), orcha.find-text (⌘⇧F) and
-// orcha.find-pane (⌘F) open FIND (finder.js).
+// layout:orcha): orcha.settings (⌘,), orcha.find-file (⌘O), orcha.find-text (⌘⇧F),
+// orcha.find-pane (⌘F), orcha.find-link (⌘L) open FIND (finder.js).
 
 import { div } from "gpui-kit";
 import { h_flex } from "gpui-base";
@@ -36,7 +36,12 @@ function square(k, id, name, tip, onClick) {
   return raised(k, el, 2, 6);
 }
 
-/** Opens FIND on one of its tabs: "file", "text" or "pane". */
+/** Opens SETTINGS: Herdr's settings with orcha's on top (settings.js). */
+export function openSettings() {
+  openOverlay({ mod: "orcha", props: { part: "settings" }, kind: "dialog", width: 900, height: 620 });
+}
+
+/** Opens FIND on one of its tabs: "file", "text", "pane" or "links". */
 export function openFinder(mode) {
   openOverlay({ mod: "orcha", props: { part: "finder", mode }, kind: "dialog", width: 650, height: 470, frame: "none" });
 }
@@ -46,8 +51,9 @@ export default class Header {
     cx.spawn(async () => {
       for (;;) {
         const command = await nextCommand();
-        const mode = { "find-file": "file", "find-text": "text", "find-pane": "pane" }[command];
+        const mode = { "find-file": "file", "find-text": "text", "find-pane": "pane", "find-link": "links" }[command];
         if (mode) openFinder(mode);
+        else if (command === "settings") openSettings();
       }
     });
   }
@@ -109,6 +115,6 @@ export default class Header {
       .child(div().flex_1())
       .child(square(k, "orcha-palette", "command", "Commands (⌘⇧P)", () => run("app.palette")))
       .child(square(k, "orcha-accounts", "user-round", "Accounts", () => openOverlay({ mod: "orcha", props: { part: "accounts" }, kind: "dialog", width: 560, frame: "none" })))
-      .child(square(k, "orcha-settings", "settings", "Settings (⌘,)", () => run("mod.open", { name: "orcha" })));
+      .child(square(k, "orcha-settings", "settings", "Settings (⌘,)", openSettings));
   }
 }

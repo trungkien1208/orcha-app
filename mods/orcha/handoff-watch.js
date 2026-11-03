@@ -58,7 +58,7 @@ export default class HandoffWatch {
           body: best ? `${best.label ?? best.id} has ${fuel(best).left}%. Click to switch, or use HAND OFF in Accounts.` : "Click to see your accounts.",
           level: "warning",
           timeout: 15000,
-          action: { name: "mod.open", args: { name: "orcha" } },
+          action: { name: "orcha.settings" },
         });
       }
       if (h.checklist_percent && now.left < h.checklist_percent && focusedAgent() && once("checklist")) {

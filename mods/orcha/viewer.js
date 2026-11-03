@@ -2,6 +2,8 @@
 // the file read-only with its colors and line numbers. Opened from a TEXT
 // search, the lines holding the text are listed on top. It follows the last
 // file opened (shared "orcha.view"), so one viewer serves a whole tab.
+// Opened from a link with a line (`file.rs:42`), that line and the two
+// around it are listed on top, as Herdr's editor can't scroll to a line.
 
 import { div } from "gpui-kit";
 import { v_flex, h_flex, Editor, EditorState } from "gpui-base";
@@ -47,11 +49,15 @@ export default class Viewer {
             font_size: 12.5,
             syntax: { keyword: k.ansi5, string: k.ansi2, comment: k.dim, function: k.ansi4, type: k.ansi3, number: k.ansi1, constant: k.ansi6 },
           });
+          const lines = text.split("\n");
           if (view.query) {
             const q = view.query.toLowerCase();
-            const lines = text.split("\n");
             for (let i = 0; i < lines.length && this.hits.length < HITS; i += 1) {
               if (lines[i].toLowerCase().includes(q)) this.hits.push({ line: i + 1, text: lines[i].trim().slice(0, 200) });
+            }
+          } else if (view.line) {
+            for (let n = Math.max(1, view.line - 2); n <= Math.min(lines.length, view.line + 2); n += 1) {
+              this.hits.push({ line: n, text: lines[n - 1].slice(0, 200), here: n === view.line });
             }
           }
         }
@@ -111,14 +117,14 @@ export default class Viewer {
           .bg(k.yellow + "22")
           .border_b(2)
           .border_color(k.line)
-          .child(div().text_size(10.5).font_black().text_color(k.muted).child(`“${this.view.query}” · ${this.hits.length === HITS ? `${HITS}+` : this.hits.length} line${this.hits.length === 1 ? "" : "s"}`))
+          .child(div().text_size(10.5).font_black().text_color(k.muted).child(this.view.query ? `“${this.view.query}” · ${this.hits.length === HITS ? `${HITS}+` : this.hits.length} line${this.hits.length === 1 ? "" : "s"}` : `line ${this.view.line}`))
           .children(
             this.hits.map((h) =>
               h_flex()
                 .gap(8)
                 .text_size(11.5)
-                .child(div().w(42).flex_none().text_right().font_bold().text_color(k.dim).child(String(h.line)))
-                .child(div().flex_1().min_w(0).truncate().text_color(k.foreground).child(h.text)),
+                .child(div().w(42).flex_none().text_right().font_bold().text_color(h.here ? k.ink : k.dim).child(String(h.line)))
+                .child(div().flex_1().min_w(0).truncate().text_color(h.here ? k.ink : k.foreground).when(Boolean(h.here), (el) => el.font_bold()).child(h.text)),
             ),
           )
       : null;

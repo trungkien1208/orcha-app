@@ -27,6 +27,7 @@ import {
   ago,
   RANK,
 } from "./ui.js";
+import { ICON_OVERLAY } from "./icon.js";
 
 const GB = 1024 * 1024 * 1024;
 // A context this big is worth a look (orcha_usage: HEAVY_CONTEXT_TOKENS).
@@ -296,7 +297,7 @@ export default class Left {
           .hover((s) => s.opacity(0.8))
           .on_click((_e, cx) => {
             cx.stop_propagation();
-            openOverlay({ mod: "orcha", props: { part: "icon", target: { id: space.id, folder: space.folder, name: space.name } }, kind: "dialog", width: 470, height: 260, frame: "none" });
+            openOverlay({ mod: "orcha", props: { part: "icon", target: { id: space.id, folder: space.folder, name: space.name } }, ...ICON_OVERLAY });
           })
           .child(projectTile(k, space.name, this.icons[space.folder])),
       )

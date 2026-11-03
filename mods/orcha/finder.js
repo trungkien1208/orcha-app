@@ -3,18 +3,22 @@
 //   TEXT  ⌘⇧F  text inside the project's files, opened at its lines
 //   PANE  ⌘F   text in the pane you are in: a terminal's history, or the
 //              file the viewer shows
+//   LINKS ⌘L   web addresses and file paths the pane printed, opened by
+//              type (links.js)
 // Type, move with ↑↓, open with ↵, switch with Tab, close with Esc.
 
 import { div } from "gpui-kit";
 import { v_flex, h_flex, InputState, Input } from "gpui-base";
-import { props, closeOverlay, focused, panes, hc, shared, setShared } from "herdr";
+import { props, closeOverlay, focused, panes, hc, shared, setShared, notify } from "herdr";
 import { tokens, raised, icon } from "./ui.js";
 import { location, projectRoot, findFiles, findText, openFile } from "./files.js";
+import { scanLinks, openLink } from "./links.js";
 
 const MODES = [
   { id: "file", label: "FILE", key: "⌘O", hint: "Go to a file by name" },
   { id: "text", label: "TEXT", key: "⌘⇧F", hint: "Search text in this project" },
   { id: "pane", label: "PANE", key: "⌘F", hint: "Search what this pane shows" },
+  { id: "links", label: "LINKS", key: "⌘L", hint: "Links and files this pane printed" },
 ];
 const PANE_HITS = 200;
 
@@ -33,7 +37,7 @@ export default class Finder {
     this.root = cwd;
     cx.spawn(async (cx) => {
       if (cwd) this.root = await projectRoot(cwd, on);
-      if (this.mode === "file") this.search(cx);
+      if (this.mode === "file" || this.mode === "links") this.search(cx);
       cx.notify();
     });
     this.input = InputState.new({ placeholder: this.placeholder() });
@@ -70,7 +74,7 @@ export default class Finder {
   search(cx) {
     const query = this.query.trim();
     const mode = this.mode;
-    if (!query && mode !== "file") {
+    if (!query && mode !== "file" && mode !== "links") {
       this.results = [];
       cx.notify();
       return;
@@ -79,12 +83,24 @@ export default class Finder {
       let results = [];
       if (mode === "file") results = this.root ? await findFiles(this.root, this.on, query, this.cache) : [];
       else if (mode === "text") results = this.root ? await findText(this.root, this.on, query) : [];
+      else if (mode === "links") results = await this.findLinks(query);
       else results = await this.findInPane(query);
       if (query !== this.query.trim() || mode !== this.mode) return;
       this.results = results;
       this.at = 0;
       cx.notify();
     });
+  }
+
+  // The pane's links, read once per FIND, filtered by what is typed.
+  async findLinks(query) {
+    if (!this.from?.terminal) return [];
+    if (!this.links) {
+      const r = await hc(["read", this.from.terminal]);
+      this.links = scanLinks(r.stdout ?? "");
+    }
+    const q = query.toLowerCase();
+    return q ? this.links.filter((l) => l.raw.toLowerCase().includes(q)) : this.links;
   }
 
   async findInPane(query) {
@@ -104,8 +120,16 @@ export default class Finder {
     return out;
   }
 
-  open(r, _cx) {
+  open(r, cx) {
     if (!r) return;
+    if (this.mode === "links") {
+      cx.spawn(async () => {
+        const failed = await openLink(r, { cwd: this.from?.cwd ?? this.root, root: this.root, on: this.on });
+        if (failed) notify({ title: failed, level: "warning", timeout: 4000 });
+        else this.close();
+      });
+      return;
+    }
     if (this.mode === "file") openFile(this.root, r.path, this.on);
     else if (this.mode === "text") openFile(this.root, r.path, this.on, this.query.trim());
     else if (r.viewer) {
@@ -149,6 +173,12 @@ export default class Finder {
       });
     const fg = on ? k.chipText : k.ink;
     const dim = on ? k.chipText : k.dim;
+    if (this.mode === "links") {
+      return base
+        .child(icon(r.url ? "globe" : /\/$/.test(r.raw) ? "folder" : "file", 14, fg))
+        .child(div().flex_1().min_w(0).truncate().text_color(fg).when(on, (el) => el.font_bold()).child(r.raw))
+        .child(div().flex_none().text_size(10.5).text_color(dim).child(r.url ? "web" : r.line ? `line ${r.line}` : ""));
+    }
     if (this.mode === "pane" && !r.viewer) {
       return base
         .child(div().w(44).flex_none().text_right().text_size(11).font_bold().text_color(dim).child(String(r.line)))
@@ -203,8 +233,10 @@ export default class Finder {
     const empty =
       this.mode === "file" && !this.root
         ? "Click into a project first."
-        : this.mode === "pane" && !this.from
+        : (this.mode === "pane" || this.mode === "links") && !this.from
           ? "Click into a terminal or the viewer first."
+          : this.mode === "links" && !this.query.trim()
+            ? "No links or file paths in this pane yet."
           : this.query.trim()
             ? "Nothing found."
             : this.mode === "file"
@@ -258,11 +290,11 @@ export default class Finder {
           .border_color(k.line)
           .text_size(11)
           .text_color(k.muted)
-          .child(this.mode === "pane" && this.from?.terminal ? "newest first" : "↵ open")
+          .child(this.mode === "pane" && this.from?.terminal ? "newest first" : this.mode === "links" ? "↵ open · newest first" : "↵ open")
           .child("↑↓ move")
           .child("tab switch")
           .child(div().flex_1())
-          .child(div().truncate().text_color(k.dim).child(this.mode === "pane" ? this.from?.title ?? "" : this.root?.split("/").pop() ?? ""))
+          .child(div().truncate().text_color(k.dim).child(this.mode === "pane" || this.mode === "links" ? this.from?.title ?? "" : this.root?.split("/").pop() ?? ""))
           .child("esc close"),
       );
     return raised(k, box, 5, 8);

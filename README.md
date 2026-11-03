@@ -54,7 +54,7 @@ That's it. You should see the projects on the left, PROCESS at the bottom left a
 └─────────────────────────────────────────────────────────┘
 ```
 
-- **Projects** (left): each project with its icon (click it to pick a new one), its branch and how its agents are doing. The open project shows a card for each agent: what it's working on, its model, how long it has been going, and how much context and memory it uses (green is fine, yellow is getting full, red means trouble).
+- **Projects** (left): each project with its icon (click it to pick one of ~150 emoji by group or by word, or paste any emoji), its branch and how its agents are doing. The open project shows a card for each agent: what it's working on, its model, how long it has been going, and how much context and memory it uses (green is fine, yellow is getting full, red means trouble).
 - **PROCESS** (bottom left): every working agent is a little train. More on that [below](#process-the-trains).
 - **Right panel**, two tabs on top:
   - **INFO**: FUEL (how much each account has left; click it to open ACCOUNTS), the current branch with buttons to open your editor or Git app, what changed, recent commits and worktrees (extra copies of the project on other branches).
@@ -67,10 +67,20 @@ That's it. You should see the projects on the left, PROCESS at the bottom left a
   | `⌘O` | a file of the project by name (type a few letters, `↵` opens it) |
   | `⌘⇧F` | text inside the project's files; the viewer lists the lines that hold it |
   | `⌘F` | text in the pane you're in: a terminal's history, or the file the viewer shows |
+  | `⌘L` | links and file paths the pane printed, newest first |
 
   `Tab` switches between them. `⌘P` stays Herdr's terminal picker.
+- **Open what agents print.** `⌘L` lists the web addresses and file paths in the pane; `↵` opens one: a page in your browser, a folder in Finder, a picture, PDF or document in its app, code in the viewer (at its line, for `file.rs:42`). Or select a path, right-click and pick **Open**. A path that isn't where it says is looked for in the project. To open a file type in your editor instead, set it in orcha's `config.toml`:
+
+  ```toml
+  [orcha.open_with]
+  md = "editor"          # cursor, code or zed, at the line
+  png = "system"         # the system's app
+  log = "folder"         # show it in Finder
+  rs = "editor:zed {path}:$L"
+  ```
 - **Tabs and title bars** take the agent's color: Claude yellow, Codex green, Cursor blue, a plain shell teal. The open tab joins its title bar like a folder; each tab shows its agent's icon and a dot for its state. The title bar says the model, the state and for how long, and the context used.
-- **Right-click** a project or a pane to open, rename, split, zoom or close it.
+- **Right-click** a project or a pane to open, rename, split, zoom or close it; right-click inside a terminal to open the selected path or link, list the pane's links, split or zoom.
 - **Settings** (`⌘,` or the gear in the header): Herdr's own settings, with orcha's on top: working rules and skills per project (one tab per project), accounts, hand-off, and which panels to show.
 - **Themes**: Brutal, Matcha and Ocean, each in light and dark. Pick one in Settings › Look.
 
@@ -136,7 +146,7 @@ Everything goes into `~/.config/herdr-app` (or `$HERDR_APP_HOME` if set):
 - `layouts/orcha.json`: where every panel sits.
 - `themes/orcha-*.json`: the six themes.
 - `mods/orcha/`: the mod that draws orcha's panels.
-- `keys.json`: `⌘,` (settings), `⌘O`, `⌘⇧F` and `⌘F` (FIND), only while the orcha layout is on.
+- `keys.json`: `⌘,` (settings), `⌘O`, `⌘⇧F`, `⌘F` and `⌘L` (FIND), only while the orcha layout is on.
 - `settings.json`: sets Matcha as the theme, only if you haven't picked one yet.
 
 Herdr's own files and yours are left alone. Herdr picks up the changes live, no restart needed.

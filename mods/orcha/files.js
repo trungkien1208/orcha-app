@@ -42,12 +42,12 @@ export async function projectRoot(cwd, on) {
 }
 
 // Every file in the project, relative to `root` (ignored files left out).
-export const LIST_FILES = 'cd "$1" || exit 1; if command -v rg >/dev/null 2>&1; then rg --files --hidden -g "!.git" 2>/dev/null; elif git rev-parse >/dev/null 2>&1; then git ls-files -co --exclude-standard; else find . -type f -not -path "*/.git/*" | sed "s|^\\./||"; fi | head -n 20000';
+const LIST_FILES = 'cd "$1" || exit 1; if command -v rg >/dev/null 2>&1; then rg --files --hidden -g "!.git" 2>/dev/null; elif git rev-parse >/dev/null 2>&1; then git ls-files -co --exclude-standard; else find . -type f -not -path "*/.git/*" | sed "s|^\\./||"; fi | head -n 20000';
 // Lines holding the text: path:line:text, a few per file.
-export const GREP = 'cd "$1" || exit 1; if command -v rg >/dev/null 2>&1; then rg -n -S -F --no-heading --max-count 5 --max-columns 240 --max-columns-preview --hidden -g "!.git" -- "$2" 2>/dev/null; else grep -rnIF --exclude-dir=.git -m 5 -- "$2" . 2>/dev/null | sed "s|^\\./||"; fi | head -n 300';
+const GREP = 'cd "$1" || exit 1; if command -v rg >/dev/null 2>&1; then rg -n -S -F --no-heading --max-count 5 --max-columns 240 --max-columns-preview --hidden -g "!.git" -- "$2" 2>/dev/null; else grep -rnIF --exclude-dir=.git -m 5 -- "$2" . 2>/dev/null | sed "s|^\\./||"; fi | head -n 300';
 
 // "src/app/main.rs" for "mainrs" or "app main": every word appears, in order.
-export function matches(path, words) {
+function matches(path, words) {
   const p = path.toLowerCase();
   let at = 0;
   for (const w of words) {
@@ -86,9 +86,10 @@ export async function findText(root, on, query) {
   return out;
 }
 
-/** Opens `path` (inside `root`) in the viewer beside your work. */
-export function openFile(root, path, on, query = null) {
-  setShared("orcha.view", { root, path, on: on ?? null, query, seq: Date.now() });
+/** Opens `path` (inside `root`) in the viewer beside your work: with
+ *  `query`, the lines holding it listed on top; with `line`, that line. */
+export function openFile(root, path, on, query = null, line = null) {
+  setShared("orcha.view", { root, path, on: on ?? null, query, line, seq: Date.now() });
   const tab = focused()?.tab;
   const viewer = panes().find((p) => p.mod === "orcha" && p.tab === tab);
   if (viewer) run("pane.focus", { pane: viewer.pane });
