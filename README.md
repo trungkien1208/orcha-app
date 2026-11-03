@@ -71,7 +71,7 @@ That's it. You should see the projects on the left, PROCESS at the bottom left a
 
   `Tab` switches between them. `⌘P` stays Herdr's terminal picker.
 - **Open what agents print.** `⌘L` lists the web addresses and file paths in the pane, including links Claude shows only by their name (an artifact, a doc), read from its conversation; `↵` opens one: a page in your browser, a folder in Finder, a picture, PDF or document in its app, code in the viewer (at its line, for `file.rs:42`). `⌘C` or a row's copy button copies it.
-- **Right-click a link** in a terminal for **Open link** and **Copy link**, even a link Claude shows only by its name. Links cut across rows count as one, and clicking either part works. It works on a pane alone in its tab; with split panes, select the link first, then right-click. A path that isn't where it says is looked for in the project. To open a file type in your editor instead, set it in orcha's `config.toml`:
+- **Right-click a link** in a terminal for **Open link** and **Copy link**, even a link Claude shows only by its name. Links cut across rows count as one, and clicking either part works. In a split tab, orcha learns where a pane is when the pointer passes over its title bar; if a right-click finds nothing, select the link first. A path that isn't where it says is looked for in the project. To open a file type in your editor instead, set it in orcha's `config.toml`:
 
   ```toml
   [orcha.open_with]

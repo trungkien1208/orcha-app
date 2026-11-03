@@ -6,7 +6,7 @@
 
 import { div } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
-import { props, run, closeOverlay, openOverlay, panes, terminals, notify, hc, layout, settings } from "herdr";
+import { props, run, closeOverlay, openOverlay, panes, terminals, notify, hc, layout, settings, shared, setShared } from "herdr";
 import { tokens, icon, readable } from "./ui.js";
 import { linkInSelection, openLink, placeLinks, linkAt, transcriptLinks, completeLinks } from "./links.js";
 import { projectRoot } from "./files.js";
@@ -93,16 +93,34 @@ async function selection(cx, pane) {
   return after.trim();
 }
 
-// The cell under a window point, for a pane alone in its tab: the layout says
-// where its terminal is, and the terminal fills that place in rows and columns.
+// Rows are this many times taller than columns are wide, measured on a pane
+// alone in its tab; until then, Geist Mono's.
+const CELL_RATIO = 2.57;
+
+// The cell under a window point. A pane alone in its tab: the layout says
+// where its terminal is. In a split tab: its title bar, where the pointer last
+// passed over it (pane.js). The terminal fills that place in rows and columns.
 function cellAt(point, pane, size) {
   if (!point || !pane || !size.cols || !size.rows) return null;
-  const alone = pane.zoomed || panes().filter((p) => p.tab === pane.tab).length === 1;
-  if (!alone) return null;
   const tree = layout();
   // Layout sizes grow with the app's zoom; the pointer and the window do not.
   const zoom = settings().zoom ?? 1;
+  const [padY, padX] = tree.terminal_padding ?? [0, 0];
   const find = (node, id) => (node?.id === id ? node : (node?.children ?? []).map((c) => find(c, id)).find(Boolean) ?? null);
+  const inside = (left, top, right, bottom) =>
+    point.x >= left && point.x <= right && point.y >= top && point.y <= bottom
+      ? { row: Math.floor(((point.y - top) / (bottom - top)) * size.rows), col: Math.floor(((point.x - left) / (right - left)) * size.cols) }
+      : null;
+  const alone = pane.zoomed || panes().filter((p) => p.tab === pane.tab).length === 1;
+  if (!alone) {
+    const bar = shared("orcha.paneBounds")?.[pane.pane];
+    if (!bar) return null;
+    const left = bar.x + padX * zoom;
+    const right = bar.x + bar.w - padX * zoom;
+    const top = bar.y + bar.h + padY * zoom;
+    const cell = (right - left) / size.cols;
+    return inside(left, top, right, top + size.rows * cell * (shared("orcha.cellRatio") ?? CELL_RATIO));
+  }
   const px = (id) => {
     const node = find(tree, id);
     return node && !node.hidden ? node.size?.px ?? 0 : 0;
@@ -111,15 +129,15 @@ function cellAt(point, pane, size) {
   const main = find(tree, "main");
   const work = find(tree, "work");
   const edge = find(tree, "frame")?.border?.width ?? 0;
-  const [padY, padX] = tree.terminal_padding ?? [0, 0];
   const header = main?.content?.pane?.header?.height ?? 0;
   const side = (work?.padding?.[1] ?? 0) + edge + (main?.padding?.[1] ?? 0) + padX;
   const left = (px("sidebar") + side) * zoom;
   const right = view.width - (px("right") + side) * zoom;
   const top = (px("header") + (work?.padding?.[0] ?? 0) + edge + px("tabs") + header + padY) * zoom;
   const bottom = view.height - (px("status") + (work?.padding?.[0] ?? 0) + edge + px("frame-foot") + padY) * zoom;
-  if (point.x < left || point.x > right || point.y < top || point.y > bottom) return null;
-  return { row: Math.floor(((point.y - top) / (bottom - top)) * size.rows), col: Math.floor(((point.x - left) / (right - left)) * size.cols) };
+  const ratio = ((bottom - top) / size.rows) / ((right - left) / size.cols);
+  if (Math.abs(ratio - (shared("orcha.cellRatio") ?? 0)) > 0.02) setShared("orcha.cellRatio", Math.round(ratio * 1000) / 1000);
+  return inside(left, top, right, bottom);
 }
 
 export class TerminalMenu {

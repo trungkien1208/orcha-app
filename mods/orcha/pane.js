@@ -6,8 +6,20 @@
 
 import { div } from "gpui-kit";
 import { h_flex } from "gpui-base";
-import { panes, agents, props, run } from "herdr";
+import { panes, agents, props, run, shared, setShared } from "herdr";
 import { tokens, agentColor, programIcon, ownTitle, modelOf, icon, agentFacts, stateColor, tokensShort, ago, WORD, agentTitle } from "./ui.js";
+
+// Where this pane's title bar is in the window, learned when the pointer
+// passes over it: the right-click menu finds the cell under the pointer in a
+// split tab from it (menu.js). Shared only when it changed.
+function remember(id, bounds) {
+  if (!bounds) return;
+  const b = { x: Math.round(bounds.x), y: Math.round(bounds.y), w: Math.round(bounds.width), h: Math.round(bounds.height) };
+  const all = shared("orcha.paneBounds") ?? {};
+  const was = all[id];
+  if (was && was.x === b.x && was.y === b.y && was.w === b.w && was.h === b.h) return;
+  setShared("orcha.paneBounds", { ...all, [id]: b });
+}
 
 export default class Pane {
   constructor(_cx) {
@@ -81,6 +93,7 @@ export default class Pane {
       .text_size(12)
       .text_color(fg)
       .on_click(() => run("pane.focus", { pane: id }))
+      .on_mouse_move((e) => remember(id, e.bounds))
       .child(programIcon(p.program, 13, fg) ?? icon("terminal", 13, fg))
       .when(Boolean(name), (el) => el.child(div().flex_none().font_black().child(name)))
       .when(isAgent, (el) => el.child(this.state(k, p.status ?? "idle")))
