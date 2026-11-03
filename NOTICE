@@ -1,0 +1,13 @@
+orcha for Herdr
+Copyright 2026 trungkien1208
+
+This product is licensed under the Apache License, Version 2.0 (LICENSE).
+
+It includes:
+
+- mods/orcha/settings.js, based on the settings page of the Herdr desktop
+  app (https://github.com/herdrdev/herdr-app, frame/settings/main.js),
+  licensed under the Apache License, Version 2.0.
+
+- mods/orcha/icons/*.svg, from Lucide (https://lucide.dev), licensed under
+  the ISC License; see mods/orcha/icons/LICENSE.
