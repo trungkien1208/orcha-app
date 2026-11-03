@@ -4,7 +4,7 @@
 
 ## Why? 🐐 + 🐋
 
-<p align="center"><img src="docs/why.svg" alt="The goat (Herdr app) brings a real window, terminals that never die, GPU speed and mods, but no brain. The whale (orcha) brings every agent at a glance, PROCESS trains, fuel and account switch, find, files and links, but no window. Together: GOATCHA, orcha-app." width="100%" /></p>
+<p align="center"><img src="docs/goatcha.svg" alt="The goat (Herdr app) brings a real window, terminals that never die, GPU speed and mods, but no brain. The whale (orcha) brings every agent at a glance, PROCESS trains, fuel and account switch, find, files and links, but no window. Together: GOATCHA, orcha-app." width="100%" /></p>
 
 ## Look 👀
 
