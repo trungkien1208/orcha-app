@@ -17,4 +17,6 @@ Herdr → `⌘⇧P` → `layout.switch` → **orcha**. Done.
 
 Not a fork. Just a plugin. Fuel and accounts come from the terminal [orcha](https://github.com/trungkien1208/orcha).
 
+Wanna read the stuff nobody reads? 🥱 [Click here.](docs/BORING.md)
+
 <sub>Apache-2.0 · the goat is Herdr's, the whale is ours 🍵</sub>
