@@ -1,74 +1,103 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 560" width="1200" height="560">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 640" width="1200" height="640">
 <style>
-  .bob { animation: bob 1.8s ease-in-out infinite; }
-  .wob { animation: wob 2.2s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
-  .spark { animation: spark 1.2s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
-  .spark2 { animation: spark 1.2s ease-in-out 0.6s infinite; transform-box: fill-box; transform-origin: center; }
-  @keyframes bob { 50% { transform: translateY(-9px); } }
-  @keyframes wob { 50% { transform: rotate(-4deg) scale(1.05); } }
-  @keyframes spark { 0%, 100% { opacity: 0.2; transform: scale(0.7); } 50% { opacity: 1; transform: scale(1.15); } }
-  @media (prefers-reduced-motion: reduce) { .bob, .wob, .spark, .spark2 { animation: none; } }
+  .bob { animation: bob 2s ease-in-out infinite; }
+  .wob { animation: wob 2.4s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+  .spark { animation: spark 1.3s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+  .spark2 { animation: spark 1.3s ease-in-out .65s infinite; transform-box: fill-box; transform-origin: center; }
+  .glow { animation: glow 2s ease-in-out infinite; }
+  @keyframes bob { 50% { transform: translateY(-8px); } }
+  @keyframes wob { 50% { transform: rotate(-6deg) scale(1.05); } }
+  @keyframes spark { 0%,100% { opacity: .25; transform: scale(.7); } 50% { opacity: 1; transform: scale(1.15); } }
+  @keyframes glow { 50% { opacity: .55; } }
+  @media (prefers-reduced-motion: reduce) { .bob,.wob,.spark,.spark2,.glow { animation: none; } }
   text { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; }
   .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  .row { font-size: 18px; font-weight: 750; fill: #111; }
 </style>
 <defs>
-  <pattern id="dots" width="18" height="18" patternUnits="userSpaceOnUse"><circle cx="3" cy="3" r="2" fill="#111" opacity="0.13"/></pattern>
-  <pattern id="stripes" width="28" height="28" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="14" height="28" fill="#111" opacity="0.9"/></pattern>
+  <pattern id="dots" width="18" height="18" patternUnits="userSpaceOnUse"><circle cx="3" cy="3" r="2" fill="#111" opacity=".13"/></pattern>
+  <pattern id="stripes" width="28" height="28" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="14" height="28" fill="#111"/></pattern>
+  <radialGradient id="halo"><stop offset="0" stop-color="#fff7b0" stop-opacity=".95"/><stop offset="1" stop-color="#fff7b0" stop-opacity="0"/></radialGradient>
+  <symbol id="i-window" viewBox="0 0 256 256"><path d="M216,36H40A20,20,0,0,0,20,56V200a20,20,0,0,0,20,20H216a20,20,0,0,0,20-20V56A20,20,0,0,0,216,36Zm-4,160H44V60H212ZM60,92a16,16,0,1,1,16,16A16,16,0,0,1,60,92Zm48,0a16,16,0,1,1,16,16A16,16,0,0,1,108,92Z"/></symbol>
+  <symbol id="i-term" viewBox="0 0 256 256"><path d="M72.5,150.63,100.79,128,72.5,105.37a12,12,0,1,1,15-18.74l40,32a12,12,0,0,1,0,18.74l-40,32a12,12,0,0,1-15-18.74ZM144,172h32a12,12,0,0,0,0-24H144a12,12,0,0,0,0,24ZM236,56V200a20,20,0,0,1-20,20H40a20,20,0,0,1-20-20V56A20,20,0,0,1,40,36H216A20,20,0,0,1,236,56Zm-24,4H44V196H212Z"/></symbol>
+  <symbol id="i-zap" viewBox="0 0 256 256"><path d="M219.71,117.38a12,12,0,0,0-7.25-8.52L161.28,88.39l10.59-70.61a12,12,0,0,0-20.64-10l-112,120a12,12,0,0,0,4.31,19.33l51.18,20.47L84.13,238.22a12,12,0,0,0,20.64,10l112-120A12,12,0,0,0,219.71,117.38ZM113.6,203.55l6.27-41.77a12,12,0,0,0-7.41-12.92L68.74,131.37,142.4,52.45l-6.27,41.77a12,12,0,0,0,7.41,12.92l43.72,17.49Z"/></symbol>
+  <symbol id="i-puzzle" viewBox="0 0 256 256"><path d="M222.41,155.16a12,12,0,0,0-11.56-.69A16,16,0,0,1,188,139,16.2,16.2,0,0,1,202.8,124a15.83,15.83,0,0,1,8,1.5A12,12,0,0,0,228,114.7V72a20,20,0,0,0-20-20H176a40.15,40.15,0,0,0-12.62-29.16,39.67,39.67,0,0,0-29.94-10.76,40.08,40.08,0,0,0-37.34,37C96,50.07,96,51,96,52H64A20,20,0,0,0,44,72v28a40.15,40.15,0,0,0-29.16,12.62A40,40,0,0,0,41.1,179.9a28.3,28.3,0,0,0,2.9.1v28a20,20,0,0,0,20,20H208a20,20,0,0,0,20-20V165.31A12,12,0,0,0,222.41,155.16ZM204,204H68V165.31a12,12,0,0,0-17.15-10.84A15.9,15.9,0,0,1,42.8,156,16.2,16.2,0,0,1,28,141.06a16,16,0,0,1,22.82-15.52A12,12,0,0,0,68,114.7V76h42.7a12,12,0,0,0,10.83-17.15A15.9,15.9,0,0,1,120,50.8,16.19,16.19,0,0,1,134.94,36a16,16,0,0,1,15.53,22.81A12,12,0,0,0,161.31,76H204v24c-1,0-1.93,0-2.9.11A40,40,0,0,0,204,180h0Z"/></symbol>
+  <symbol id="i-robot" viewBox="0 0 256 256"><path d="M72,104a16,16,0,1,1,16,16A16,16,0,0,1,72,104Zm96,16a16,16,0,1,0-16-16A16,16,0,0,0,168,120Zm68-40V192a36,36,0,0,1-36,36H56a36,36,0,0,1-36-36V80A36,36,0,0,1,56,44h60V16a12,12,0,0,1,24,0V44h60A36,36,0,0,1,236,80Zm-24,0a12,12,0,0,0-12-12H56A12,12,0,0,0,44,80V192a12,12,0,0,0,12,12H200a12,12,0,0,0,12-12Zm-12,82a30,30,0,0,1-30,30H86a30,30,0,0,1,0-60h84A30,30,0,0,1,200,162Zm-80-6v12h16V156ZM86,168H96V156H86a6,6,0,0,0,0,12Zm90-6a6,6,0,0,0-6-6H160v12h10A6,6,0,0,0,176,162Z"/></symbol>
+  <symbol id="i-train" viewBox="0 0 256 256"><path d="M184,20H72A36,36,0,0,0,36,56V184a36,36,0,0,0,36,36h0l-9.6,12.8a12,12,0,1,0,19.2,14.4L102,220h52l20.4,27.2a12,12,0,0,0,19.2-14.4L184,220h0a36,36,0,0,0,36-36V56A36,36,0,0,0,184,20ZM60,116V84h56v32Zm80-32h56v32H140ZM72,44H184a12,12,0,0,1,12,12v4H60V56A12,12,0,0,1,72,44ZM184,196H72a12,12,0,0,1-12-12V140H196v44A12,12,0,0,1,184,196Zm-80-28a16,16,0,1,1-16-16A16,16,0,0,1,104,168Zm80,0a16,16,0,1,1-16-16A16,16,0,0,1,184,168Z"/></symbol>
+  <symbol id="i-fuel" viewBox="0 0 256 256"><path d="M247.8,66.83,228.49,47.51a12,12,0,0,0-17,17L230.83,83.8A4,4,0,0,1,232,86.63V166a6,6,0,0,1-12,0V128a28,28,0,0,0-28-28H180V56a28,28,0,0,0-28-28H72A28,28,0,0,0,44,56V204H32a12,12,0,0,0,0,24H192a12,12,0,0,0,0-24H180V124h12a4,4,0,0,1,4,4v38a30,30,0,0,0,60,0V86.63A27.81,27.81,0,0,0,247.8,66.83ZM68,204V56a4,4,0,0,1,4-4h80a4,4,0,0,1,4,4V204Zm72-92a12,12,0,0,1-12,12H96a12,12,0,0,1,0-24h32A12,12,0,0,1,140,112Z"/></symbol>
+  <symbol id="i-search" viewBox="0 0 256 256"><path d="M232.49,215.51,185,168a92.12,92.12,0,1,0-17,17l47.53,47.54a12,12,0,0,0,17-17ZM44,112a68,68,0,1,1,68,68A68.07,68.07,0,0,1,44,112Z"/></symbol>
+  <symbol id="i-brain" viewBox="0 0 256 256"><path d="M252,124a60.14,60.14,0,0,0-32-53.08,52,52,0,0,0-92-32.11A52,52,0,0,0,36,70.92a60,60,0,0,0,0,106.14,52,52,0,0,0,92,32.13,52,52,0,0,0,92-32.13A60.05,60.05,0,0,0,252,124ZM88,204a28,28,0,0,1-26.85-20.07c1,0,1.89.07,2.85.07h8a12,12,0,0,0,0-24H64A36,36,0,0,1,52,90.05a12,12,0,0,0,8-11.32V72a28,28,0,0,1,56,0v60.18a51.61,51.61,0,0,0-7.2-3.85,12,12,0,1,0-9.6,22A28,28,0,0,1,88,204Zm104-44h-8a12,12,0,0,0,0,24h8c1,0,1.9,0,2.85-.07a28,28,0,1,1-38-33.61,12,12,0,1,0-9.6-22,51.61,51.61,0,0,0-7.2,3.85V72a28,28,0,0,1,56,0v6.73a12,12,0,0,0,8,11.32,36,36,0,0,1-12,70Zm16-44a12,12,0,0,1-12,12,40,40,0,0,1-40-40V84a12,12,0,0,1,24,0v4a16,16,0,0,0,16,16A12,12,0,0,1,208,116ZM100,88a40,40,0,0,1-40,40,12,12,0,0,1,0-24A16,16,0,0,0,76,88V84a12,12,0,0,1,24,0Z"/></symbol>
 </defs>
-<rect width="1200" height="560" fill="#9fd36a"/>
-<rect width="1200" height="560" fill="url(#dots)"/>
-<rect x="0" y="522" width="1200" height="38" fill="#f2c53d"/>
-<rect x="0" y="522" width="1200" height="38" fill="url(#stripes)" opacity="0.18"/>
-
-<!-- goat card -->
-<rect x="50" y="110" width="250" height="300" fill="#111"/>
-<rect x="40" y="100" width="250" height="300" fill="#fff4d6" stroke="#111" stroke-width="5"/>
-<text x="165" y="208" text-anchor="middle" font-size="84">🐐</text>
-<text x="165" y="254" text-anchor="middle" font-size="30" font-weight="900" fill="#111">THE GOAT</text>
-<text x="165" y="280" text-anchor="middle" class="mono" font-size="15" fill="#555">Herdr app</text>
-<text x="66" y="330" class="mono" font-size="18" font-weight="800" fill="#111">a window ... ✅</text>
-<text x="66" y="364" class="mono" font-size="18" font-weight="800" fill="#111">a brain .... ❌</text>
-
-<!-- plus -->
-<g class="wob"><circle cx="340" cy="250" r="34" fill="#7f9bff" stroke="#111" stroke-width="5"/>
-<text x="340" y="268" text-anchor="middle" font-size="48" font-weight="900" fill="#111">+</text></g>
-
-<!-- whale card -->
-<rect x="400" y="110" width="250" height="300" fill="#111"/>
-<rect x="390" y="100" width="250" height="300" fill="#fff4d6" stroke="#111" stroke-width="5"/>
-<text x="515" y="208" text-anchor="middle" font-size="84">🐋</text>
-<text x="515" y="254" text-anchor="middle" font-size="30" font-weight="900" fill="#111">THE WHALE</text>
-<text x="515" y="280" text-anchor="middle" class="mono" font-size="15" fill="#555">orcha, in a terminal</text>
-<text x="416" y="330" class="mono" font-size="18" font-weight="800" fill="#111">a window ... ❌</text>
-<text x="416" y="364" class="mono" font-size="18" font-weight="800" fill="#111">a brain .... ✅</text>
-
-<!-- equals -->
-<g class="wob"><circle cx="690" cy="250" r="34" fill="#f0447a" stroke="#111" stroke-width="5"/>
-<text x="690" y="267" text-anchor="middle" font-size="46" font-weight="900" fill="#fff">=</text></g>
-
-<!-- fusion card -->
-<rect x="758" y="46" width="414" height="440" fill="#111"/>
-<rect x="744" y="32" width="414" height="440" fill="#f2c53d" stroke="#111" stroke-width="6"/>
-<g class="bob">
-  <text x="951" y="214" text-anchor="middle" font-size="150">🐋</text>
-  <text x="944" y="124" text-anchor="middle" font-size="76">🐐</text>
-  <text x="948" y="74" text-anchor="middle" font-size="46">👑</text>
+<rect width="1200" height="640" fill="#9fd36a"/>
+<rect width="1200" height="640" fill="url(#dots)"/>
+<rect y="604" width="1200" height="36" fill="#f2c53d"/>
+<rect y="604" width="1200" height="36" fill="url(#stripes)" opacity=".18"/>
+<g transform="rotate(-2 600 46)">
+  <rect x="340" y="22" width="520" height="54" rx="27" fill="#111"/>
+  <text x="600" y="58" text-anchor="middle" font-size="25" font-weight="900" fill="#fff4d6">WHAT HAPPENS WHEN 🐐 MEETS 🐋</text>
 </g>
-<text x="776" y="96" font-size="34" class="spark">✨</text>
-<text x="1104" y="150" font-size="30" class="spark2">⚡</text>
-<text x="1092" y="80" font-size="26" class="spark">✨</text>
-<text x="784" y="210" font-size="28" class="spark2">⚡</text>
-<text x="951" y="282" text-anchor="middle" font-size="40" font-weight="900" fill="#111" letter-spacing="-1">GOATWHALE</text>
-<rect x="790" y="296" width="322" height="38" fill="#111" transform="rotate(-2 951 315)"/>
-<text x="951" y="322" text-anchor="middle" class="mono" font-size="17" font-weight="900" fill="#9fd36a" transform="rotate(-2 951 315)">FINAL FINAL FINAL FORM</text>
-<text x="951" y="362" text-anchor="middle" class="mono" font-size="16" font-weight="800" fill="#111">= orcha-app</text>
-<text x="780" y="404" class="mono" font-size="18" font-weight="800" fill="#111">window ✅ brain ✅ chaos 0</text>
-<text x="780" y="440" class="mono" font-size="18" font-weight="800" fill="#111">vibe ............ 🔥🔥🔥</text>
 
-<!-- stickers -->
-<g class="wob"><rect x="60" y="34" width="250" height="44" rx="22" fill="#fff" stroke="#111" stroke-width="4"/>
-<text x="185" y="63" text-anchor="middle" font-size="19" font-weight="900" fill="#111">⚗️ the experiment</text></g>
-<rect x="250" y="438" width="420" height="44" fill="#f0447a" transform="rotate(-2 460 460)"/>
-<text x="460" y="468" text-anchor="middle" font-size="23" font-weight="900" fill="#fff" transform="rotate(-2 460 460)">one window. one brain. zero chaos.</text>
-<text x="1170" y="510" text-anchor="end" class="mono" font-size="14" font-weight="800" fill="#111">no goats or whales were harmed 🍵</text>
+<rect x="52" y="112" width="310" height="400" rx="16" fill="#111"/>
+<rect x="40" y="100" width="310" height="400" rx="16" fill="#fff4d6" stroke="#111" stroke-width="5"/>
+<path d="M40 116 a16 16 0 0 1 16 -16 h278 a16 16 0 0 1 16 16 v64 h-310 z" fill="#111"/>
+<text x="66" y="158" font-size="42">🐐</text>
+<text x="124" y="142" font-size="27" font-weight="900" fill="#fff4d6">THE GOAT</text>
+<text x="124" y="165" class="mono" font-size="14" fill="#c9c2ae">Herdr app</text>
+<text x="64" y="210" class="mono" font-size="12.5" font-weight="800" fill="#8a8370" letter-spacing="1.5">BRINGS</text>
+<rect x="64" y="223" width="34" height="34" rx="8" fill="#fff" stroke="#111" stroke-width="2.5"/><use href="#i-window" x="71" y="230" width="20" height="20" fill="#111"/><text x="110" y="246" class="row">a real window</text>
+<rect x="64" y="275" width="34" height="34" rx="8" fill="#c9e6ff" stroke="#111" stroke-width="2.5"/><use href="#i-term" x="71" y="282" width="20" height="20" fill="#111"/><text x="110" y="298" class="row">terminals that never die</text>
+<rect x="64" y="327" width="34" height="34" rx="8" fill="#f2c53d" stroke="#111" stroke-width="2.5"/><use href="#i-zap" x="71" y="334" width="20" height="20" fill="#111"/><text x="110" y="350" class="row">GPU-fast, butter smooth</text>
+<rect x="64" y="379" width="34" height="34" rx="8" fill="#f7b6d2" stroke="#111" stroke-width="2.5"/><use href="#i-puzzle" x="71" y="386" width="20" height="20" fill="#111"/><text x="110" y="402" class="row">mods for everything</text>
+<line x1="64" y1="434" x2="326" y2="434" stroke="#111" stroke-width="2" stroke-dasharray="5 6" opacity=".35"/>
+<rect x="64" y="455" width="34" height="34" rx="8" fill="#f6c3c0" stroke="#111" stroke-width="2.5"/><use href="#i-brain" x="71" y="462" width="20" height="20" fill="#b0453c"/>
+<line x1="68" y1="459" x2="94" y2="485" stroke="#b0453c" stroke-width="3.5" stroke-linecap="round"/>
+<text x="110" y="478" class="mono" font-size="15" font-weight="800" fill="#b0453c">no brain</text>
+
+<rect x="458" y="112" width="310" height="400" rx="16" fill="#111"/>
+<rect x="446" y="100" width="310" height="400" rx="16" fill="#fff4d6" stroke="#111" stroke-width="5"/>
+<path d="M446 116 a16 16 0 0 1 16 -16 h278 a16 16 0 0 1 16 16 v64 h-310 z" fill="#111"/>
+<text x="472" y="158" font-size="42">🐋</text>
+<text x="530" y="142" font-size="27" font-weight="900" fill="#fff4d6">THE WHALE</text>
+<text x="530" y="165" class="mono" font-size="14" fill="#c9c2ae">orcha, the brain</text>
+<text x="470" y="210" class="mono" font-size="12.5" font-weight="800" fill="#8a8370" letter-spacing="1.5">BRINGS</text>
+<rect x="470" y="223" width="34" height="34" rx="8" fill="#9fd36a" stroke="#111" stroke-width="2.5"/><use href="#i-robot" x="477" y="230" width="20" height="20" fill="#111"/><text x="516" y="246" class="row">every agent at a glance</text>
+<rect x="470" y="275" width="34" height="34" rx="8" fill="#f2c53d" stroke="#111" stroke-width="2.5"/><use href="#i-train" x="477" y="282" width="20" height="20" fill="#111"/><text x="516" y="298" class="row">PROCESS trains</text>
+<rect x="470" y="327" width="34" height="34" rx="8" fill="#c9e6ff" stroke="#111" stroke-width="2.5"/><use href="#i-fuel" x="477" y="334" width="20" height="20" fill="#111"/><text x="516" y="350" class="row">fuel + account switch</text>
+<rect x="470" y="379" width="34" height="34" rx="8" fill="#f7b6d2" stroke="#111" stroke-width="2.5"/><use href="#i-search" x="477" y="386" width="20" height="20" fill="#111"/><text x="516" y="402" class="row">find, files, links</text>
+<line x1="470" y1="434" x2="732" y2="434" stroke="#111" stroke-width="2" stroke-dasharray="5 6" opacity=".35"/>
+<rect x="470" y="455" width="34" height="34" rx="8" fill="#f6c3c0" stroke="#111" stroke-width="2.5"/><use href="#i-window" x="477" y="462" width="20" height="20" fill="#b0453c"/>
+<line x1="474" y1="459" x2="500" y2="485" stroke="#b0453c" stroke-width="3.5" stroke-linecap="round"/>
+<text x="516" y="478" class="mono" font-size="15" font-weight="800" fill="#b0453c">no window</text>
+<g class="wob"><rect x="378" y="272" width="64" height="64" rx="14" fill="#111"/>
+<rect x="372" y="266" width="64" height="64" rx="14" fill="#7f9bff" stroke="#111" stroke-width="5"/>
+<path d="M389 298 h30 M404 283 v30" stroke="#111" stroke-width="8" stroke-linecap="round"/></g>
+<g class="wob"><rect x="789" y="272" width="64" height="64" rx="14" fill="#111"/>
+<rect x="783" y="266" width="64" height="64" rx="14" fill="#f0447a" stroke="#111" stroke-width="5"/>
+<path d="M801 291 h28 M801 305 h28" stroke="#fff" stroke-width="7" stroke-linecap="round"/></g>
+<circle cx="1012" cy="260" r="230" fill="url(#halo)" class="glow"/>
+<g transform="rotate(2 1012 310)">
+  <rect x="876" y="72" width="300" height="476" rx="18" fill="#111"/>
+  <rect x="862" y="58" width="300" height="476" rx="18" fill="#f2c53d" stroke="#111" stroke-width="6"/>
+  <g class="bob">
+    <text x="1014" y="244" text-anchor="middle" font-size="138">🐋</text>
+    <text x="1006" y="156" text-anchor="middle" font-size="72">🐐</text>
+    <text x="1010" y="108" text-anchor="middle" font-size="42">👑</text>
+  </g>
+  <text x="882" y="128" font-size="30" class="spark">✨</text>
+  <text x="1118" y="170" font-size="28" class="spark2">⚡</text>
+  <text x="1110" y="102" font-size="24" class="spark">✨</text>
+  <text x="888" y="222" font-size="26" class="spark2">⚡</text>
+  <text x="1012" y="312" text-anchor="middle" font-size="48" font-weight="900" fill="#111" letter-spacing="-1.5">GOATCHA</text>
+  <rect x="892" y="328" width="240" height="34" fill="#111" transform="rotate(-2 1012 345)"/>
+  <text x="1012" y="352" text-anchor="middle" class="mono" font-size="16" font-weight="900" fill="#9fd36a" transform="rotate(-2 1012 345)">FINAL FINAL FINAL FORM</text>
+  <rect x="886" y="378" width="34" height="34" rx="8" fill="#fff" stroke="#111" stroke-width="2.5"/><use href="#i-window" x="893" y="385" width="20" height="20" fill="#111"/>
+  <text x="928" y="402" font-size="19" font-weight="900" fill="#111">window</text>
+  <text x="1012" y="403" text-anchor="middle" font-size="22" font-weight="900" fill="#111">+</text>
+  <rect x="1028" y="378" width="34" height="34" rx="8" fill="#f7b6d2" stroke="#111" stroke-width="2.5"/><use href="#i-brain" x="1035" y="385" width="20" height="20" fill="#111"/>
+  <text x="1070" y="402" font-size="19" font-weight="900" fill="#111">brain</text>
+  <text x="1012" y="444" text-anchor="middle" font-size="18" font-weight="700" fill="#3d2f00">one app. zero tab chaos.</text>
+  <rect x="930" y="464" width="164" height="40" rx="20" fill="#fff4d6" stroke="#111" stroke-width="4"/>
+  <text x="1012" y="491" text-anchor="middle" class="mono" font-size="16" font-weight="900" fill="#111">= orcha-app</text>
+</g>
+<text x="40" y="580" class="mono" font-size="14" font-weight="800" fill="#111">no goats or whales were harmed in the making of this cockpit 🍵</text>
 </svg>

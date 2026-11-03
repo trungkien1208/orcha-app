@@ -1,6 +1,7 @@
 {
   "id": "root",
   "type": "column",
+  "preview": "layouts/orcha.svg",
   "titlebar": "none",
   "traffic_lights": [
     16,

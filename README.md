@@ -1,22 +1,33 @@
 <p align="center"><img src="docs/banner.svg" alt="The goat got a whale: Herdr app, but it slaps." width="100%" /></p>
 
-## Install 🐋
+<p align="center"><b>Herdr's window 🪟 + orcha's brain 🧠 = GOATCHA.</b><br/>A plugin. Not a fork. Absolutely not normal.</p>
+
+## Why? 🐐 + 🐋
+
+<p align="center"><img src="docs/why.svg" alt="The goat (Herdr app) brings a real window, terminals that never die, GPU speed and mods, but no brain. The whale (orcha) brings every agent at a glance, PROCESS trains, fuel and account switch, find, files and links, but no window. Together: GOATCHA, orcha-app." width="100%" /></p>
+
+## Look 👀
+
+<p align="center"><img src="docs/cockpit.png" alt="orcha-app: projects and agents on the left, two agents side by side in folder tabs, PROCESS trains, fuel and git on the right" width="100%" /></p>
+
+## Install 🚀
+
+**Step 1.** Summon the goat 🐐 (skip if Herdr is already in your house):
 
 ```sh
-curl -fsSL https://releases.herdr.dev/app/install.sh | sh                                  # the goat (Herdr)
-curl -fsSL https://raw.githubusercontent.com/trungkien1208/orcha-app/HEAD/install.sh | sh  # the whale
+curl -fsSL https://releases.herdr.dev/app/install.sh | sh
 ```
 
-Herdr → `⌘⇧P` → `layout.switch` → **orcha**. Done.
+**Step 2.** Release the whale 🐋:
 
-## Why? 🐐 vs 🐋
+```sh
+curl -fsSL https://raw.githubusercontent.com/trungkien1208/orcha-app/HEAD/install.sh | sh
+```
 
-<p align="center"><img src="docs/why.svg" alt="The goat (Herdr app: a window, no brain) plus the whale (orcha in a terminal: a brain, no window) makes the goatwhale, final final final form: orcha-app" width="100%" /></p>
+**Step 3.** Tell the goat who's boss: `⌘⇧P` → `layout.switch` → **orcha**. Or Settings › Look, click the one with the ✓ energy:
 
-<p align="center"><img src="docs/tabs.png" alt="orcha-app: folder tabs in each agent's color" width="100%" /></p>
+<p align="center"><img src="docs/layout.png" alt="Herdr's layout picker with orcha selected" width="70%" /></p>
 
-Not a fork. Just a plugin. Fuel and accounts come from the terminal [orcha](https://github.com/trungkien1208/orcha).
+**Step 4.** There is no step 4. Go ship something. 🫡
 
-Wanna read the stuff nobody reads? 🥱 [Click here.](docs/BORING.md)
-
-<sub>Apache-2.0 · the goat is Herdr's, the whale is ours 🍵</sub>
+<sub>Fuel and accounts come from the terminal [orcha](https://github.com/trungkien1208/orcha) · update = run step 2 again · nerd stuff nobody reads: [click here 🥱](docs/BORING.md) · Apache-2.0 · the goat is Herdr's, the whale is ours 🍵</sub>

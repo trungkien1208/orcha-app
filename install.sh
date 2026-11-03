@@ -6,7 +6,7 @@
 #   sh install.sh          (from a clone)
 #
 # Run it again to update. Only orcha's own files are written
-# (layouts/orcha.json, themes/orcha-*, mods/orcha*), plus orcha's keys for the
+# (layouts/orcha.json and its preview, themes/orcha-*, mods/orcha*), plus orcha's keys for the
 # orcha layout in keys.json (Cmd+, Cmd+O Cmd+Shift+F Cmd+F Cmd+L) and orcha's
 # colors when no theme is picked yet; Herdr's shipped files and your own are
 # left alone.
@@ -29,6 +29,7 @@ dest=${HERDR_APP_HOME:-${XDG_CONFIG_HOME:-$HOME/.config}/herdr-app}
 
 mkdir -p "$dest/layouts" "$dest/themes" "$dest/mods"
 cp "$src/layouts/orcha.json" "$dest/layouts/orcha.json"
+cp "$src/layouts/orcha.svg" "$dest/layouts/orcha.svg"
 for old in "$dest"/themes/orcha-*.json; do
   [ -e "$old" ] || continue
   [ -e "$src/themes/$(basename "$old")" ] || rm -f "$old"
