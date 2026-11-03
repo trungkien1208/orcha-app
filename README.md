@@ -70,7 +70,7 @@ That's it. You should see the projects on the left, PROCESS at the bottom left a
   | `⌘L` | links and file paths the pane printed, newest first |
 
   `Tab` switches between them. `⌘P` stays Herdr's terminal picker.
-- **Open what agents print.** `⌘L` lists the web addresses and file paths in the pane; `↵` opens one: a page in your browser, a folder in Finder, a picture, PDF or document in its app, code in the viewer (at its line, for `file.rs:42`). Or select a path, right-click and pick **Open**. A path that isn't where it says is looked for in the project. To open a file type in your editor instead, set it in orcha's `config.toml`:
+- **Open what agents print.** `⌘L` lists the web addresses and file paths in the pane; `↵` opens one: a page in your browser, a folder in Finder, a picture, PDF or document in its app, code in the viewer (at its line, for `file.rs:42`). `⌘C` or a row's copy button copies it. Or select a path, right-click and pick **Open** or **Copy**. A path that isn't where it says is looked for in the project. To open a file type in your editor instead, set it in orcha's `config.toml`:
 
   ```toml
   [orcha.open_with]

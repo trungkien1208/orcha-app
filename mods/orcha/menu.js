@@ -5,7 +5,7 @@
 
 import { div } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
-import { props, run, closeOverlay, openOverlay, exec, panes, terminals, window, notify } from "herdr";
+import { props, run, closeOverlay, openOverlay, panes, terminals, notify } from "herdr";
 import { tokens, icon, readable } from "./ui.js";
 import { scanLinks, openLink } from "./links.js";
 import { projectRoot } from "./files.js";
@@ -58,8 +58,8 @@ function drawMenu(k, title, rows) {
           .hover((el) => el.bg(k.hover))
           // Closes once the action is done: opening a link takes a moment, and
           // a closed menu's tasks stop.
-          .on_click(() => {
-            Promise.resolve(onClick()).finally(close);
+          .on_click((_e, cx) => {
+            Promise.resolve(onClick(cx)).finally(close);
           })
           .child(icon(name, 14))
           .child(div().min_w(0).truncate().font_semibold().child(label)),
@@ -77,17 +77,17 @@ export default class Menu {
   }
 }
 
-// What is selected in the terminal, on macOS: copied, read back, and the
-// clipboard put back as it was. Null when nothing new was selected.
-async function selection(pane) {
-  if (window()?.platform !== "macos") return null;
-  const before = (await exec("pbpaste", [])).stdout;
+// What is selected in the terminal: copied, read back, and the clipboard
+// put back as it was (Herdr has no other way to read a selection). Null
+// when nothing new was selected.
+async function selection(cx, pane) {
+  const before = cx.read_from_clipboard();
   run("pane.focus", { pane });
   run("terminal.copy");
-  await exec("sleep", ["0.12"]);
-  const after = (await exec("pbpaste", [])).stdout;
-  if (after === before) return null;
-  await exec("sh", ["-c", 'printf %s "$1" | pbcopy', "orcha", before]);
+  await new Promise((done) => cx.timer.after(120, done));
+  const after = cx.read_from_clipboard();
+  if (!after || after === before) return null;
+  if (before !== undefined) cx.write_to_clipboard(before);
   return after.trim();
 }
 
@@ -97,7 +97,7 @@ export class TerminalMenu {
     const target = props()?.target ?? {};
     this.pane = panes().find((p) => p.pane === target.pane) ?? null;
     cx.spawn(async (cx) => {
-      const text = await selection(target.pane);
+      const text = await selection(cx, target.pane);
       this.link = text ? scanLinks(text, 1)[0] ?? null : null;
       cx.notify();
     });
@@ -119,7 +119,12 @@ export class TerminalMenu {
     const toProgram = term?.labels?.["herdr.right-click"] === "program";
     const short = (raw) => (raw.length > 26 ? `…${raw.slice(-25)}` : raw);
     const rows = [
-      ...(this.link ? [[this.link.url ? "globe" : "file", `Open ${short(this.link.raw)}`, () => this.open()]] : []),
+      ...(this.link
+        ? [
+            [this.link.url ? "globe" : "file", `Open ${short(this.link.raw)}`, () => this.open()],
+            ["copy", `Copy ${short(this.link.raw)}`, (cx) => cx.write_to_clipboard(this.link.raw)],
+          ]
+        : []),
       ["globe", "Links in this pane…", () => openFinder("links")],
       ["columns-2", "Split right", () => run("pane.split", { direction: "right", pane: tg.pane })],
       ["rows-2", "Split down", () => run("pane.split", { direction: "down", pane: tg.pane })],

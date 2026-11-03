@@ -5,7 +5,8 @@
 //              file the viewer shows
 //   LINKS ⌘L   web addresses and file paths the pane printed, opened by
 //              type (links.js)
-// Type, move with ↑↓, open with ↵, switch with Tab, close with Esc.
+// Type, move with ↑↓, open with ↵, switch with Tab, close with Esc; in LINKS,
+// ⌘C (or a row's copy button) copies a link.
 
 import { div } from "gpui-kit";
 import { v_flex, h_flex, InputState, Input } from "gpui-base";
@@ -139,9 +140,20 @@ export default class Finder {
     this.close();
   }
 
+  copy(r, cx) {
+    if (!r) return;
+    cx.write_to_clipboard(r.raw);
+    notify({ title: `Copied ${r.raw.length > 48 ? `…${r.raw.slice(-47)}` : r.raw}`, level: "success", timeout: 2000 });
+  }
+
   key(e, cx) {
     const n = this.results.length;
     if (e.key === "escape") return this.close();
+    if (this.mode === "links" && e.key === "c" && e.modifiers?.platform) {
+      this.copy(this.results[this.at], cx);
+      cx.stop_propagation();
+      return;
+    }
     if (e.key === "tab") {
       const i = MODES.findIndex((m) => m.id === this.mode);
       this.switchTo(MODES[(i + (e.modifiers?.shift ? MODES.length - 1 : 1)) % MODES.length].id, cx);
@@ -177,7 +189,22 @@ export default class Finder {
       return base
         .child(icon(r.url ? "globe" : /\/$/.test(r.raw) ? "folder" : "file", 14, fg))
         .child(div().flex_1().min_w(0).truncate().text_color(fg).when(on, (el) => el.font_bold()).child(r.raw))
-        .child(div().flex_none().text_size(10.5).text_color(dim).child(r.url ? "web" : r.line ? `line ${r.line}` : ""));
+        .child(div().flex_none().text_size(10.5).text_color(dim).child(r.url ? "web" : r.line ? `line ${r.line}` : ""))
+        .child(
+          div()
+            .id(`find-copy-${i}`)
+            .flex_none()
+            .p(3)
+            .rounded(4)
+            .cursor_pointer()
+            .hover((s) => s.bg(k.line + "22"))
+            .tooltip("Copy (⌘C)")
+            .on_click((_e, cx) => {
+              cx.stop_propagation();
+              this.copy(r, cx);
+            })
+            .child(icon("copy", 13, fg)),
+        );
     }
     if (this.mode === "pane" && !r.viewer) {
       return base
@@ -290,7 +317,7 @@ export default class Finder {
           .border_color(k.line)
           .text_size(11)
           .text_color(k.muted)
-          .child(this.mode === "pane" && this.from?.terminal ? "newest first" : this.mode === "links" ? "↵ open · newest first" : "↵ open")
+          .child(this.mode === "pane" && this.from?.terminal ? "newest first" : this.mode === "links" ? "↵ open · ⌘C copy" : "↵ open")
           .child("↑↓ move")
           .child("tab switch")
           .child(div().flex_1())
