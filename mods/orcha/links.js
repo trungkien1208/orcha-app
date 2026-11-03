@@ -76,40 +76,124 @@ export async function transcriptLinks(cwd, max = 200) {
   return out;
 }
 
-/** The links on a terminal's screen and where: [{ link, row, from, to }], in
- *  rows and columns. A web address cut by the right edge goes on in the next
- *  row. `written` are links Claude wrote: found by the label the screen shows. */
+// A printed path, or null: it has a slash or a file's extension, and is no
+// number, version or email.
+function asPath(token) {
+  if (token.length < 3 || !PATH_RE.test(token) || NOT_A_PATH.test(token)) return null;
+  if (!token.includes("/") && !HAS_EXT.test(token)) return null;
+  const m = /^(.*?)(?::(\d+))?(?::\d+)?$/.exec(token);
+  return { raw: token, path: m[1], line: m[2] ? Number(m[2]) : null };
+}
+
+const CUT_URL = /^[^\s<>"'`|\]│]+/;
+const CUT_PATH = /^[\w@.+\-/~:]+/;
+
+// Where the text of a table cell starts in the next row, for a cell holding
+// column `at` of this row: a mark in front (⧉) can shift it from the row above.
+function cellText(text, next, at) {
+  const start = text.lastIndexOf("│", at) + 1;
+  return start + /^\s*/.exec(next.slice(start))[0].length;
+}
+
+// Where a link cut at `end` of a row goes on, or null. The right edge of the
+// terminal: at the start of the next row, past any indent. A full table cell:
+// in the same column of the next row. Agents and tables wrap long links
+// mid-word, so a link that stops at the very edge likely goes on.
+function nextPart(rows, row, start, end, cols, pattern) {
+  const next = rows[row + 1];
+  if (next === undefined) return null;
+  const after = rows[row].slice(end);
+  const atEdge = cols && !after.trim() && end >= cols - 2;
+  const inCell = /^ ?│/.test(after);
+  if (!atEdge && !inCell) return null;
+  const from = inCell ? cellText(rows[row], next, start) : /^[\s│>]*/.exec(next)[0].length;
+  const part = pattern.exec(next.slice(from))?.[0];
+  return part ? { row: row + 1, from, to: from + part.length } : null;
+}
+
+// Every link in the rows, joined across rows, with where each part is:
+// [{ link, spans: [{ row, from, to }] }], top to bottom.
+function findLinks(rows, cols) {
+  const taken = rows.map((text) => text);
+  const take = (span) => {
+    const text = taken[span.row];
+    taken[span.row] = text.slice(0, span.from) + " ".repeat(span.to - span.from) + text.slice(span.to);
+  };
+  const follow = (row, m, pattern) => {
+    const spans = [{ row, from: m.index, to: m.index + m[0].length }];
+    let raw = m[0];
+    for (let part = nextPart(taken, row, m.index, spans[0].to, cols, pattern); part && spans.length < 8; ) {
+      raw += rows[part.row].slice(part.from, part.to);
+      spans.push(part);
+      part = nextPart(taken, part.row, part.from, part.to, cols, pattern);
+    }
+    return { raw, spans };
+  };
+  const out = [];
+  rows.forEach((_, row) => {
+    for (const m of [...taken[row].matchAll(URL_RE)]) {
+      const { raw, spans } = follow(row, m, CUT_URL);
+      spans.forEach(take);
+      out.push({ link: { raw: raw.replace(/[.,;:!?)]+$/, ""), url: true, cut: spans.length > 1, head: m[0] }, spans });
+    }
+    for (const m of [...taken[row].matchAll(/[\w@.+\-/~:]+/g)]) {
+      const clean = m[0].replace(/^:+/, "").replace(/[.,;:]+$/, "");
+      const alone = asPath(clean);
+      // Only what already reads as a path goes on: a plain word at the edge
+      // is followed by the next word, not by more of it.
+      const { raw, spans } = alone && clean === m[0] ? follow(row, m, CUT_PATH) : { raw: clean, spans: [{ row, from: m.index, to: m.index + m[0].length }] };
+      const link = asPath(raw.replace(/[.,;:]+$/, ""));
+      if (!link) continue;
+      spans.forEach(take);
+      if (spans.length > 1) Object.assign(link, { cut: true, head: clean, alt: alone?.path });
+      out.push({ link, spans });
+    }
+  });
+  return out;
+}
+
+// Where a label Claude wrote is on the rows, wrapped or not: the spans of its
+// words, or null. A wrapped label ends its row (or its table cell).
+function labelSpans(rows, label) {
+  const words = label.split(/\s+/);
+  const fromRow = (row, rest, column) => {
+    const text = rows[row];
+    if (text === undefined) return null;
+    const whole = rest.join(" ");
+    const at = column ?? text.indexOf(whole);
+    if (at >= 0 && text.startsWith(whole, at)) return [{ row, from: at, to: at + whole.length }];
+    for (let n = rest.length - 1; n >= 1; n -= 1) {
+      const part = rest.slice(0, n).join(" ");
+      const from = column ?? text.indexOf(part);
+      if (from < 0 || !text.startsWith(part, from)) continue;
+      const to = from + part.length;
+      if (text.slice(to).trim() && !/^\s*│/.test(text.slice(to))) continue;
+      const next = rows[row + 1] ?? "";
+      const inCell = /^\s*│/.test(text.slice(to));
+      const onward = fromRow(row + 1, rest.slice(n), inCell ? cellText(text, next, from) : /^[\s│>]*/.exec(next)[0].length);
+      if (onward) return [{ row, from, to }, ...onward];
+    }
+    return null;
+  };
+  for (let row = 0; row < rows.length; row += 1) {
+    const spans = fromRow(row, words, null);
+    if (spans) return spans;
+  }
+  return null;
+}
+
+/** The links on a terminal's screen and where: [{ link, row, from, to }], one
+ *  entry per row a link is on. `written` are links Claude wrote, found by the
+ *  label the screen shows. */
 export function placeLinks(screen, cols, written = []) {
   const rows = screen.split("\n");
   const out = [];
-  let carried = null; // the part of an address cut at the end of the row above
-  rows.forEach((text, row) => {
-    let rest = text;
-    if (carried) {
-      const at = text.indexOf(carried.tail);
-      out.push({ link: carried.link, row, from: at, to: at + carried.tail.length });
-      rest = rest.slice(0, at) + " ".repeat(carried.tail.length) + rest.slice(at + carried.tail.length);
-      carried = null;
-    }
-    for (const m of text.matchAll(URL_RE)) {
-      const end = m.index + m[0].length;
-      if (rest.slice(m.index, end).trim() === "") continue;
-      // Cut at the edge: the rest of the address starts the next row.
-      const tail = cols && end >= cols - 1 ? /^\s*([^\s<>"'`|\]]*)/.exec(rows[row + 1] ?? "")?.[1] ?? "" : "";
-      const link = { raw: (m[0] + tail).replace(/[.,;:!?)]+$/, ""), url: true };
-      out.push({ link, row, from: m.index, to: end });
-      if (tail) carried = { link, tail };
-      rest = rest.slice(0, m.index) + " ".repeat(m[0].length) + rest.slice(end);
-    }
-    for (const m of rest.matchAll(/[\w@.+\-/~:]+/g)) {
-      const found = scanLinks(m[0], 1)[0];
-      if (found) out.push({ link: found, row, from: m.index, to: m.index + m[0].length });
-    }
-    for (const link of written) {
-      const at = link.label ? text.indexOf(link.label) : -1;
-      if (at >= 0) out.push({ link, row, from: at, to: at + link.label.length });
-    }
-  });
+  const place = (link, spans) => spans.forEach((span) => out.push({ link, ...span }));
+  for (const { link, spans } of findLinks(rows, cols)) place(link, spans);
+  for (const link of written) {
+    const spans = link.label ? labelSpans(rows, link.label) : null;
+    if (spans) place(link, spans);
+  }
   return out;
 }
 
@@ -121,29 +205,54 @@ export function linkAt(placed, cell) {
 }
 
 /** The links in `text`, newest (lowest on screen) first, each once:
- *  { raw, url } for a web address, { raw, path, line } for a file path. */
-export function scanLinks(text, max = 300) {
-  const out = [];
+ *  { raw, url } for a web address, { raw, path, line } for a file path.
+ *  With `cols`, links cut at the right edge are joined. */
+export function scanLinks(text, max = 300, cols = 0) {
   const seen = new Set();
-  const add = (link) => {
-    if (seen.has(link.raw) || out.length >= max) return;
+  const out = [];
+  for (const { link } of findLinks((text ?? "").split("\n"), cols).reverse()) {
+    if (seen.has(link.raw)) continue;
     seen.add(link.raw);
-    out.push(link);
-  };
-  const lines = (text ?? "").split("\n");
-  for (let i = lines.length - 1; i >= 0; i -= 1) {
-    let line = lines[i];
-    for (const m of line.match(URL_RE) ?? []) add({ raw: m.replace(/[.,;:!?)]+$/, ""), url: true });
-    line = line.replace(URL_RE, " ");
-    for (let token of line.split(/[^\w@.+\-/~:]+/)) {
-      token = token.replace(/^:+/, "").replace(/[.,;:]+$/, "");
-      if (token.length < 3 || !PATH_RE.test(token) || NOT_A_PATH.test(token)) continue;
-      if (!token.includes("/") && !HAS_EXT.test(token)) continue;
-      const m = /^(.*?)(?::(\d+))?(?::\d+)?$/.exec(token);
-      add({ raw: token, path: m[1], line: m[2] ? Number(m[2]) : null });
-    }
+    if (out.length < max) out.push(link);
   }
   return out;
+}
+
+/** Selected text as one link, or null: a selection across wrapped rows has
+ *  their line breaks and indents in it. */
+export function linkInSelection(text) {
+  return scanLinks(text.replace(/\s*\n[\s│>]*/g, ""), 1)[0] ?? null;
+}
+
+/** A terminal's width in columns, or 0. */
+export async function terminalCols(address) {
+  try {
+    return JSON.parse((await hc(["get", "--json", address])).stdout).cols ?? 0;
+  } catch {
+    return 0;
+  }
+}
+
+// What Claude's conversation says in full: a link cut on the screen is the one
+// there that starts the same. Surer than joining rows, which only guesses.
+const WORDS_IN_JSON = /https?:\/\/[^\s<>"'`|\]\\)]+|[~.]{0,2}\/?[\w@.+-]+(?:\/[\w@.+-]+)+/g;
+
+/** Cut links made whole from the Claude conversation in `cwd`, when it has them. */
+export async function completeLinks(links, cwd) {
+  if (!cwd || !links.some((l) => l.cut)) return links;
+  const file = await claudeTranscript(cwd);
+  if (!file) return links;
+  const known = new Set((await exec("tail", ["-c", "2000000", file])).stdout.match(WORDS_IN_JSON) ?? []);
+  const whole = (link) => {
+    if (!link.cut || known.has(link.url ? link.raw : link.path)) return link;
+    let best = null;
+    for (const word of known) {
+      if (word.startsWith(link.head) && word.length > link.head.length && (!best || word.length > best.length)) best = word;
+    }
+    if (!best) return link;
+    return link.url ? { ...link, raw: best } : { ...link, raw: best, path: best, line: null };
+  };
+  return links.map(whole);
 }
 
 // Finds a printed path: as written, in the pane's folder, in the project,
@@ -191,7 +300,8 @@ export async function openLink(link, { cwd, root, on }) {
     systemOpen(link.raw);
     return null;
   }
-  const found = await resolvePath(link.path, cwd, root, on);
+  // A link joined across rows may have taken a word that is not part of it.
+  const found = (await resolvePath(link.path, cwd, root, on)) ?? (link.alt ? await resolvePath(link.alt, cwd, root, on) : null);
   if (!found) return `can't find ${link.path}`;
   const slash = found.path.lastIndexOf("/");
   const viewer = () => openFile(found.path.slice(0, slash) || "/", found.path.slice(slash + 1), on, null, link.line);

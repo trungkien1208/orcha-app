@@ -13,7 +13,7 @@ import { v_flex, h_flex, InputState, Input } from "gpui-base";
 import { props, closeOverlay, focused, panes, shared, setShared, notify } from "herdr";
 import { tokens, raised, icon } from "./ui.js";
 import { location, projectRoot, findFiles, findText, openFile } from "./files.js";
-import { scanLinks, openLink, readTerminal, transcriptLinks } from "./links.js";
+import { scanLinks, openLink, readTerminal, terminalCols, transcriptLinks, completeLinks } from "./links.js";
 
 const MODES = [
   { id: "file", label: "FILE", key: "⌘O", hint: "Go to a file by name" },
@@ -99,8 +99,11 @@ export default class Finder {
   async findLinks(query) {
     if (!this.from?.terminal) return [];
     if (!this.links) {
-      const written = this.from.program?.key?.includes("claude") ? await transcriptLinks(this.from.cwd) : [];
-      const shown = scanLinks(await readTerminal(this.from.terminal));
+      const claude = this.from.program?.key?.includes("claude");
+      const written = claude ? await transcriptLinks(this.from.cwd) : [];
+      const [text, cols] = await Promise.all([readTerminal(this.from.terminal), terminalCols(this.from.terminal)]);
+      const found = scanLinks(text, 300, cols);
+      const shown = claude ? await completeLinks(found, this.from.cwd) : found;
       const seen = new Set(written.map((l) => l.raw));
       this.links = [...written, ...shown.filter((l) => !seen.has(l.raw))];
     }

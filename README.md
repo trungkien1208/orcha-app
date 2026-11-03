@@ -54,7 +54,7 @@ That's it. You should see the projects on the left, PROCESS at the bottom left a
 └─────────────────────────────────────────────────────────┘
 ```
 
-- **Projects** (left): each project with its icon (click it to pick one of ~150 emoji by group or by word, or paste any emoji), its branch and how its agents are doing. Click a project's arrow to show its agents without switching to it; open as many as you like. An open project shows a card for each agent: what it's working on, its model, how long it has been going, and how much context and memory it uses (green is fine, yellow is getting full, red means trouble).
+- **Projects** (left): each project with its icon (click it to pick one of ~150 emoji by group or by word, or paste any emoji), its branch and how its agents are doing. A project opens when you select it and stays open; its arrow closes it, or opens another without switching to it. Open as many as you like. An open project shows a card for each agent: what it's working on, its model, how long it has been going, and how much context and memory it uses (green is fine, yellow is getting full, red means trouble).
 - **PROCESS** (bottom left): every working agent is a little train. More on that [below](#process-the-trains).
 - **Right panel**, two tabs on top:
   - **INFO**: FUEL (how much the account of the agent in front of you has left: Claude, Codex or Cursor; click it to open ACCOUNTS), the current branch with buttons to open your editor or Git app, what changed, recent commits and worktrees (extra copies of the project on other branches).
@@ -71,7 +71,7 @@ That's it. You should see the projects on the left, PROCESS at the bottom left a
 
   `Tab` switches between them. `⌘P` stays Herdr's terminal picker.
 - **Open what agents print.** `⌘L` lists the web addresses and file paths in the pane, including links Claude shows only by their name (an artifact, a doc), read from its conversation; `↵` opens one: a page in your browser, a folder in Finder, a picture, PDF or document in its app, code in the viewer (at its line, for `file.rs:42`). `⌘C` or a row's copy button copies it.
-- **Right-click a link** in a terminal for **Open link** and **Copy link**, even a link Claude shows only by its name. It works on a pane alone in its tab; with split panes, select the link first, then right-click. A path that isn't where it says is looked for in the project. To open a file type in your editor instead, set it in orcha's `config.toml`:
+- **Right-click a link** in a terminal for **Open link** and **Copy link**, even a link Claude shows only by its name. Links cut across rows count as one, and clicking either part works. It works on a pane alone in its tab; with split panes, select the link first, then right-click. A path that isn't where it says is looked for in the project. To open a file type in your editor instead, set it in orcha's `config.toml`:
 
   ```toml
   [orcha.open_with]

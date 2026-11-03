@@ -115,10 +115,9 @@ export default class Left {
     this.changed = new Map(); // pane → { status, at }
     this.icons = {}; // project folder → emoji (orcha's project-icons.json)
     this.codex = new Map(); // folder → { size, lines }: the last Codex session read
-    // Projects opened or closed by their chevron, kept in this browser-like
-    // store: the open project shows its agents unless closed; others when opened.
+    // Projects showing their agents, remembered between restarts: one opens
+    // when it is selected and stays open until its arrow closes it.
     this.opened = new Set(stored("orcha.opened"));
-    this.closed = new Set(stored("orcha.closed"));
     this.readIcons(cx);
     this.readMemory(cx);
     this.readTranscripts(cx);
@@ -345,17 +344,25 @@ export default class Left {
 
   // A project: its tile, its name, its branch and agents, and how it is doing.
   expanded(space) {
-    return space.active ? !this.closed.has(space.id) : this.opened.has(space.id);
+    return this.opened.has(space.id);
   }
 
-  // The chevron: shows or hides a project's agents without switching to it.
+  // A newly selected project opens.
+  openSelected(list) {
+    const id = list.find((s) => s.active)?.id;
+    if (!id || id === this.selected) return;
+    this.selected = id;
+    if (!this.opened.has(id)) {
+      this.opened.add(id);
+      keep("orcha.opened", this.opened);
+    }
+  }
+
+  // The arrow: shows or hides a project's agents without switching to it.
   toggle(space, cx) {
-    const open = this.expanded(space);
-    const set = space.active ? this.closed : this.opened;
-    if (open === space.active) set.add(space.id);
-    else set.delete(space.id);
+    if (this.opened.has(space.id)) this.opened.delete(space.id);
+    else this.opened.add(space.id);
     keep("orcha.opened", this.opened);
-    keep("orcha.closed", this.closed);
     cx.notify();
   }
 
@@ -605,6 +612,7 @@ export default class Left {
     const allPanes = panes();
     const byPane = new Map(agents().map((a) => [a.pane, a]));
     const list = spaces();
+    this.openSelected(list);
     const projects = list.map((space) => {
       const tabIds = new Set(space.tabs.map((tab) => tab.id));
       return this.project(k, space, allPanes.filter((p) => tabIds.has(p.tab)), byPane);

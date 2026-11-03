@@ -8,7 +8,7 @@ import { div } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
 import { props, run, closeOverlay, openOverlay, panes, terminals, notify, hc, layout, settings } from "herdr";
 import { tokens, icon, readable } from "./ui.js";
-import { scanLinks, openLink, placeLinks, linkAt, transcriptLinks } from "./links.js";
+import { linkInSelection, openLink, placeLinks, linkAt, transcriptLinks, completeLinks } from "./links.js";
 import { projectRoot } from "./files.js";
 import { ICON_OVERLAY } from "./icon.js";
 
@@ -133,7 +133,7 @@ export class TerminalMenu {
     const point = globalThis.window.mouse_position();
     cx.spawn(async (cx) => {
       this.selected = await selection(cx, target.pane);
-      const chosen = this.selected ? scanLinks(this.selected, 1)[0] ?? null : null;
+      const chosen = this.selected ? linkInSelection(this.selected) : null;
       this.link = chosen ?? (target.terminal ? await this.linkUnder(target.terminal, point) : null);
       this.ready = true;
       cx.notify();
@@ -154,9 +154,10 @@ export class TerminalMenu {
     }
     const cell = cellAt(point, this.pane, size);
     if (!cell) return null;
+    const claude = this.pane?.program?.key?.includes("claude");
     const shown = linkAt(placeLinks(text, size.cols), cell);
-    if (shown || !this.pane?.program?.key?.includes("claude")) return shown;
-    return linkAt(placeLinks(text, size.cols, await transcriptLinks(this.pane.cwd)), cell);
+    if (shown) return claude ? (await completeLinks([shown], this.pane.cwd))[0] : shown;
+    return claude ? linkAt(placeLinks(text, size.cols, await transcriptLinks(this.pane.cwd)), cell) : null;
   }
 
   async open(link) {
