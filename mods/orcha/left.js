@@ -72,18 +72,12 @@ export default class Left {
     this.memory = new Map(); // terminal address → bytes
     this.changed = new Map(); // pane → { status, at }
     this.icons = {}; // project folder → emoji (orcha's project-icons.json)
-    this.tick = 0; // trains move while any runs
     this.readIcons(cx);
     this.readMemory(cx);
     this.readTranscripts(cx);
     cx.timer.every(4000, (cx) => this.readMemory(cx));
     cx.timer.every(5000, (cx) => this.readTranscripts(cx));
     cx.timer.every(60000, (cx) => this.readIcons(cx));
-    cx.timer.every(450, (cx) => {
-      if (!agents().some((a) => a.status === "working")) return;
-      this.tick += 1;
-      cx.notify();
-    });
   }
 
   readIcons(cx) {
@@ -344,31 +338,91 @@ export default class Left {
     return raised(k, card, 4, 9);
   }
 
-  // A metro line of the four stations: the legs behind the train filled in
-  // ink, the station it is at lit in the agent's color and pulsing.
-  metro(k, at, color, beat) {
-    const pct = (i) => `${(i / 3) * 100}%`;
+  // A metro line of the four stations. The train runs on the leg between
+  // the stop it reached and the next one: the rail behind it filled in ink,
+  // a small engine in the agent's color chugging forward with puffs of
+  // smoke behind, the next stop blinking. When the agent moves on, the rail
+  // grows and the engine glides to the next leg. At DONE it parks under the
+  // flag. Everything moves natively, no redraws from here.
+  metro(k, at, color, key = "depot") {
+    const pct = (x) => `${(x / 3) * 100}%`;
+    const moving = at >= 0 && at < 3;
+    const head = at >= 3 ? 3 : at + 0.5;
+    const puff = (left, top, size, period) =>
+      div().absolute().left(left).top(top).size(size).rounded(size / 2).bg(k.dim).loop("opacity", { from: 0, to: 0.8, period });
+    const body = h_flex()
+      .relative()
+      .size_full()
+      .justify_center()
+      .items_center()
+      .rounded(4)
+      .border(2)
+      .border_color(k.line)
+      .bg(color)
+      .child(icon("train-front", 9, k.chipText))
+      .when(moving, (el) => el.loop("top", { from: 0, to: -1.5, period: 420 }));
+    const engine = div()
+      .absolute()
+      .top(-6)
+      .right(-11)
+      .w(22)
+      .h(15)
+      .child(
+        div()
+          .relative()
+          .size_full()
+          .when(moving, (el) => el.loop("left", { from: -3, to: 2, period: 1400 }))
+          .when(moving, (el) => el.child(puff(-7, 1, 5, 700)).child(puff(-13, -2, 4, 900)).child(puff(-18, -4, 3, 1100)))
+          .child(body),
+      );
+    // DONE is a little checkered flag.
+    const flag = (done) =>
+      v_flex()
+        .size(10)
+        .rounded(2)
+        .border(1.5)
+        .border_color(k.line)
+        .overflow_hidden()
+        .children(
+          [0, 1].map((r) =>
+            h_flex()
+              .flex_1()
+              .children([0, 1].map((c) => div().flex_1().bg((r + c) % 2 ? (done ? color : k.card) : k.ink))),
+          ),
+        );
     return div()
       .relative()
       .flex_1()
       .h(22)
       .child(div().absolute().top(10).left(0).w_full().h(3).rounded(2).bg(k.dim + "66"))
-      .when(at >= 0, (el) => el.child(div().absolute().top(10).left(0).w(pct(at)).h(3).rounded(2).bg(k.ink)))
       .children(
         [0, 1, 2, 3].map((i) => {
-          const here = i === at;
-          const size = here ? (beat ? 16 : 13) : 10;
-          return div()
-            .absolute()
-            .top(11.5 - size / 2)
-            .left(pct(i))
-            .ml(-size / 2)
-            .size(size)
-            .rounded(size / 2)
+          const next = moving && i === at + 1;
+          const base = div().absolute().top(6.5).left(pct(i)).ml(-5);
+          if (i === 3) return base.child(flag(at >= 3)).when(next, (el) => el.loop("opacity", { from: 0.4, to: 1, period: 900 }));
+          return base
+            .size(10)
+            .rounded(5)
             .border(2)
-            .border_color(k.line)
-            .bg(here ? color : i < at ? k.ink : k.card);
+            .border_color(next ? color : k.line)
+            .bg(i <= at ? k.ink : k.card)
+            .when(next, (el) => el.loop("opacity", { from: 0.35, to: 1, period: 900 }));
         }),
+      )
+      .when(at >= 0, (el) =>
+        el.child(
+          div()
+            .id(`rail-${key}`)
+            .absolute()
+            .top(10)
+            .left(0)
+            .w(pct(head))
+            .h(3)
+            .rounded(2)
+            .bg(k.ink)
+            .transition("width", { duration: 900, easing: "ease-in-out" })
+            .child(engine),
+        ),
       );
   }
 
@@ -378,7 +432,6 @@ export default class Left {
     if (shared("orcha.process") === "off") return null;
     const running = allPanes.filter((p) => p.program?.agent && p.status === "working");
     const stations = agentFacts().stations ?? {};
-    const beat = this.tick % 2 === 0;
     const lane = (pane) => {
       const color = agentColor(k, pane.program);
       const at = Math.max(0, STATIONS.indexOf(stations[pane.terminal] ?? "THINK"));
@@ -400,11 +453,10 @@ export default class Left {
             .border(2)
             .border_color(k.line)
             .bg(color)
-            .ml(beat ? 0 : 2)
             .child(programIcon(pane.program, 13, k.chipText) ?? icon("train-front", 13, k.chipText))
             .child(div().flex_1().truncate().text_size(10.5).font_black().text_color(k.chipText).child(modelOf(pane).toUpperCase())),
         )
-        .child(this.metro(k, at, color, beat));
+        .child(this.metro(k, at, color, pane.pane));
     };
     // Station names under the line: first at its start, last at its end.
     const labels = h_flex()
@@ -418,7 +470,7 @@ export default class Left {
       ? v_flex().gap(8).children(running.map(lane)).child(labels)
       : v_flex()
           .gap(6)
-          .child(h_flex().gap(10).items_center().child(h_flex().w(96).flex_none().gap(5).items_center().child(icon("train-front", 15, k.dim)).child(div().text_size(10.5).font_black().text_color(k.dim).child("DEPOT"))).child(this.metro(k, -1, k.dim, false)))
+          .child(h_flex().gap(10).items_center().child(h_flex().w(96).flex_none().gap(5).items_center().child(icon("train-front", 15, k.dim)).child(div().text_size(10.5).font_black().text_color(k.dim).child("DEPOT"))).child(this.metro(k, -1, k.dim)))
           .child(labels)
           .child(div().pt(2).text_size(11.5).text_color(k.muted).child("No trains running. They leave the depot when an agent starts working."));
     const card = v_flex()

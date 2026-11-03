@@ -108,9 +108,9 @@ export function programIcon(program, size, color) {
   return program.tint ? svg(program.icon).size(size).flex_none().text_color(color) : image(program.icon).w(size).h(size).flex_none();
 }
 
-/** A terminal's own title, unless it is only its address (`t1`). */
+/** A terminal's own title, unless it is only its address (`t1`, `t1f`). */
 export function ownTitle(pane) {
-  return /^([\w-]+\/)?t\d+$/.test(pane?.title ?? "") ? null : pane?.title || null;
+  return /^([\w-]+\/)?t[0-9a-f]+$/.test(pane?.title ?? "") ? null : pane?.title || null;
 }
 
 /** What orcha read about agents (models by folder, stations by terminal). */
@@ -138,7 +138,7 @@ export function countChip(k, n, status) {
   return h_flex().gap(5).items_center().child(chip(k, String(n), stateColor(k, status))).child(div().text_size(11.5).text_color(k.barText).child(WORD[status]));
 }
 
-/** One of orcha's line icons (Lucide, icons/LICENSE), tinted with `color`. */
+/** One of orcha's icons (Phosphor Bold, icons/LICENSE), tinted with `color`. */
 export function icon(name, size = 14, color) {
   const el = svg(`mods/orcha/icons/${name}.svg`).size(size).flex_none();
   return color ? el.text_color(color) : el;
@@ -223,12 +223,18 @@ export function ago(ms) {
   return `${Math.floor(m / 1440)}d`;
 }
 
+/** The percent of a plan limit left (0–100), from orcha's cache pair
+ *  [percent used, reset at], or null. */
+export function fuelLeft(entry) {
+  return Array.isArray(entry) && !Number.isNaN(Number(entry[0])) ? Math.max(0, Math.min(100, Math.round(100 - Number(entry[0])))) : null;
+}
+
 /** A plan limit as ten segments over the full width, the percent left, and
  *  when it resets ("resets in 3h 06m · 00:52"). `entry` is orcha's cache
  *  pair [percent used, reset at (unix seconds)]. */
 export function fuelGauge(k, name, entry) {
-  if (!Array.isArray(entry) || Number.isNaN(Number(entry[0]))) return null;
-  const left = Math.max(0, Math.min(100, Math.round(100 - Number(entry[0]))));
+  const left = fuelLeft(entry);
+  if (left == null) return null;
   const color = left > 50 ? k.green : left >= 20 ? k.yellow : k.red;
   const filled = Math.round(left / 10);
   const at = Number(entry[1]) * 1000;

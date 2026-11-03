@@ -6,8 +6,8 @@ import { div, svg, image } from "gpui-kit";
 import { v_flex, h_flex, Scrollbar, InputState, Input } from "gpui-base";
 import { hc, run, theme, themes, fonts, updates, telemetry, settings, layouts, shared, setShared, appHome, readTextFile, writeTextFile, playSound, props, closeOverlay, window, spaces, exec, home, layout, notify } from "herdr";
 import { RULES, SKILLS } from "./catalog.js";
-import { fuelGauge, tokens } from "./ui.js";
-import { readAccounts, activateAccount, refreshFuel } from "./accounts-data.js";
+import { fuelGauge, tokens, projectTile } from "./ui.js";
+import { readAccounts, activateAccount, refreshFuel, addAccount, signIn, readHandoff, writeHandoff, HANDOFF_DEFAULTS } from "./accounts-data.js";
 
 const I = (name) => `frame/settings/${name}.svg`;
 
@@ -16,6 +16,7 @@ const O = (name) => `mods/orcha/icons/${name}.svg`;
 const SECTIONS = [
   { id: "projects", title: "Projects", svg: O("git-fork") },
   { id: "accounts", title: "Accounts", svg: O("fuel") },
+  { id: "handoff", title: "Hand-off", svg: O("handoff") },
   { id: "orcha", title: "Layout", svg: O("columns-2") },
   { id: "look", title: "Look", icon: "palette" },
   ...(window()?.platform === "macos" ? [{ id: "keyboard", title: "Keyboard", icon: "keyboard" }] : []),
@@ -90,13 +91,26 @@ export default class Settings {
   }
 
   init(_props, cx) {
-    const asked = props()?.section;
+    // A low-fuel note asks for Accounts (handoff-watch.js) for a short while.
+    const pending = shared("orcha.openSection");
+    if (pending && pending.until > Date.now()) setShared("orcha.openSection", null);
+    const asked = props()?.section ?? (pending && pending.until > Date.now() ? pending.id : null);
     this.section = SECTIONS.some((s) => s.id === asked) ? asked : "projects";
-    this.orcha = { project: null, info: null, busy: {}, accounts: null, active: null };
+    this.orcha = { project: null, info: null, busy: {}, accounts: null, active: null, icons: {} };
+    cx.spawn(async (cx) => {
+      try {
+        this.orcha.icons = JSON.parse((await readTextFile(`${home()}/.config/orcha/project-icons.json`)) ?? "{}") ?? {};
+      } catch {
+        this.orcha.icons = {};
+      }
+      cx.notify();
+    });
     this.picking = null; // "font" | "ui_font" while its list is open
     this.filter = "";
     this.fontInput = InputState.new({ placeholder: "Type to search fonts" });
     this.fontInput.on("change", (_e, cx) => { this.filter = this.fontInput.value(); cx.notify(); });
+    this.accountInput = InputState.new({ placeholder: "name, like personal or work" });
+    this.accountInput.on("submit", (_e, cx) => this.addAccount(cx));
     this.renameInput = InputState.new();
     this.renameInput.on("focus", (_e, cx) => { this.renameFocused = true; cx.notify(); });
     this.renameInput.on("blur", (_e, cx) => { this.renameFocused = false; cx.notify(); });
@@ -963,23 +977,37 @@ export default class Settings {
     const space = this.projectSpace();
     const info = this.orcha.info;
     if (space && info?.space !== space.id) this.loadProject(cx);
+    // One tab per project, its icon and name; the open one joins the page.
+    const k = tokens();
     const picker = h_flex()
-      .flex_wrap()
-      .gap(6)
+      .id("op-tabs")
+      .w_full()
+      .gap(4)
+      .items_end()
+      .overflow_x_scrollbar()
+      .border_b(2)
+      .border_color(k.line)
       .children(
-        spaces().map((s) =>
-          div()
+        spaces().map((s) => {
+          const on = s.id === space?.id;
+          return h_flex()
             .id(`op-${s.id}`)
-            .px(10)
-            .py(4)
-            .rounded(7)
-            .border_1()
-            .border_color(s.id === space?.id ? t.accent : t.border)
-            .bg(s.id === space?.id ? t.raised : "#00000000")
+            .flex_none()
+            .h(on ? 34 : 30)
+            .pl(6)
+            .pr(10)
+            .gap(7)
+            .items_center()
+            .rounded_t(7)
+            .border_2()
+            .border_b_0()
+            .border_color(on ? k.line : "#00000000")
+            .bg(on ? k.yellow : k.card)
             .cursor_pointer()
             .text_size(12.5)
-            .text_color(s.id === space?.id ? t.foreground : t.muted)
-            .hover((st) => st.bg(t.hover))
+            .font_black()
+            .text_color(on ? k.chipText : k.muted)
+            .hover((st) => (on ? st : st.bg(k.hover)))
             .on_click((_e, cx) => {
               this.orcha.project = s.id;
               this.orcha.info = null;
@@ -987,8 +1015,9 @@ export default class Settings {
               this.loadProject(cx);
               cx.notify();
             })
-            .child(s.name),
-        ),
+            .child(projectTile(k, s.name, this.orcha.icons[s.folder], 20))
+            .child(div().max_w(160).truncate().child(s.name));
+        }),
       );
     const out = v_flex().w_full().child(this.heading(t, "Project")).child(picker);
     if (!space) return out.child(div().pt(12).text_color(t.dim).child("Open a project first."));
@@ -1058,12 +1087,14 @@ export default class Settings {
     const out = v_flex()
       .w_full()
       .child(this.heading(t, "Accounts"))
-      .child(div().pb(6).text_size(12.5).text_color(t.dim).child("New Claude chats use the account in use. Fuel is what is left of each plan, read by orcha."));
+      .child(div().pb(6).text_size(12.5).text_color(t.dim).child("Claude chats use the account in use; running ones move within half a minute. Fuel is what is left of each plan, read by orcha."));
     for (const a of this.orcha.accounts ?? []) {
       const inUse = a.kind === "claude" && a.id === this.orcha.active;
       const gauges = [fuelGauge(k, "5H", a.limits.session), fuelGauge(k, "WEEK", a.limits.weekly), fuelGauge(k, "MONTH", a.limits.monthly)].filter(Boolean);
       const control =
-        a.kind !== "claude"
+        !gauges.length
+          ? this.button(t, `acc-sign-${a.id}`, "Sign in", () => { closeOverlay(props()?.overlay); signIn(a.id); })
+          : a.kind !== "claude"
           ? div()
           : inUse
             ? div().text_size(12.5).text_color(t.done).child("✓ in use")
@@ -1087,6 +1118,23 @@ export default class Settings {
           .children(gauges),
       );
     }
+    out.child(
+      v_flex()
+        .w_full()
+        .gap(6)
+        .py(12)
+        .border_b(1)
+        .border_color(t.border)
+        .child(div().text_size(14).text_color(t.foreground).child("Add a Claude account"))
+        .child(div().text_size(12.5).text_color(t.dim).child("Give it a name. A sign-in opens beside your work; your chats, settings and skills are shared with the other accounts."))
+        .child(
+          h_flex()
+            .gap(8)
+            .pt(4)
+            .child(Input.new(this.accountInput).flex_1().min_w(0).h(32).px(10).rounded(7).border_1().border_color(t.input).bg(t.background).text_size(13).text_color(t.foreground))
+            .child(this.orcha.busy.add ? div().text_size(12.5).text_color(t.dim).child("adding…") : this.button(t, "acc-add", "Add and sign in", (_e, cx) => this.addAccount(cx))),
+        ),
+    );
     return out.child(
       h_flex()
         .pt(14)
@@ -1098,6 +1146,149 @@ export default class Settings {
           }),
         )),
     );
+  }
+
+  addAccount(cx) {
+    if (this.orcha.busy.add) return;
+    this.orcha.busy.add = true;
+    cx.notify();
+    cx.spawn(async (cx) => {
+      const failed = await addAccount(this.accountInput.value());
+      delete this.orcha.busy.add;
+      if (failed) notify({ title: "The account was not added", body: failed, level: "error" });
+      else {
+        this.accountInput.set_value("");
+        notify({ title: "Sign in beside your work", body: "When it says you're in, press Enter there.", level: "success", timeout: 6000 });
+        closeOverlay(props()?.overlay);
+      }
+      this.loadAccounts(cx);
+    });
+  }
+
+  // orcha: Hand-off ------------------------------------------------------
+  // Shared with orcha in the terminal (config.toml [orcha]).
+
+  loadHandoff(cx) {
+    cx.spawn(async (cx) => {
+      this.orcha.handoff = await readHandoff();
+      cx.notify();
+    });
+  }
+
+  setHandoff(key, value, cx) {
+    this.orcha.handoff = { ...(this.orcha.handoff ?? HANDOFF_DEFAULTS), [key]: value };
+    cx.notify();
+    cx.spawn(async (cx) => {
+      const failed = await writeHandoff(key, value);
+      if (failed) {
+        notify({ title: "Not saved", body: failed, level: "error" });
+        this.loadHandoff(cx);
+      }
+    });
+  }
+
+  // The three marks on one fuel bar: 100% left on the left, empty on the right.
+  handoffBar(h) {
+    const k = tokens();
+    const marks = [
+      { at: h.checklist_percent, color: k.blue, label: "checklist" },
+      { at: h.low_fuel_percent, color: k.yellow, label: "offer" },
+      { at: h.auto_handoff_percent, color: k.red, label: "auto" },
+    ].filter((m) => m.at > 0);
+    return div()
+      .relative()
+      .w_full()
+      .h(46)
+      .mt(4)
+      .child(
+        h_flex()
+          .absolute()
+          .top(14)
+          .left(0)
+          .w_full()
+          .h(16)
+          .rounded(4)
+          .border(2)
+          .border_color(k.line)
+          .overflow_hidden()
+          .child(div().h_full().w("50%").bg(k.green))
+          .child(div().h_full().w("30%").bg(k.yellow))
+          .child(div().h_full().w("20%").bg(k.red)),
+      )
+      .children(
+        marks.map((m) =>
+          div()
+            .absolute()
+            .top(0)
+            .left(`${100 - m.at}%`)
+            .ml(-1.5)
+            .w(3)
+            .h(34)
+            .bg(k.line)
+            .child(div().absolute().top(0).left(-4).size(11).rounded(6).border(2).border_color(k.line).bg(m.color)),
+        ),
+      )
+      .child(h_flex().absolute().bottom(0).left(0).w_full().justify_between().text_size(10.5).text_color(k.dim).child("100% left").child("empty"));
+  }
+
+  handoff(t, cx) {
+    if (!this.orcha.handoff) {
+      this.loadHandoff(cx);
+      return div().text_color(t.dim).child("Reading orcha's settings…");
+    }
+    const h = this.orcha.handoff;
+    const percent = (key, about, title) => {
+      const v = Number(h[key]) || 0;
+      const step = (d) => (_e, cx) => this.setHandoff(key, Math.max(0, Math.min(90, v + d)), cx);
+      return this.row(t, title, about, this.stepper(t, `ho-${key}`, v ? `${v}%` : "off", step(-5), step(5)));
+    };
+    const modes = [
+      ["ask", "Ask"],
+      ["keep", "Keep running"],
+      ["restart", "Restart"],
+      ["new_pane", "New pane"],
+    ];
+    const modePicker = h_flex()
+      .gap(4)
+      .children(
+        modes.map(([id, label]) => {
+          const on = h.switch_mode === id;
+          return div()
+            .id(`ho-mode-${id}`)
+            .px(10)
+            .py(4)
+            .rounded(7)
+            .border_1()
+            .border_color(on ? t.accent : t.border)
+            .bg(on ? t.raised : "#00000000")
+            .cursor_pointer()
+            .text_size(12.5)
+            .text_color(on ? t.foreground : t.muted)
+            .hover((s) => s.bg(t.hover))
+            .on_click((_e, cx) => this.setHandoff("switch_mode", id, cx))
+            .child(label);
+        }),
+      );
+    return v_flex()
+      .w_full()
+      .child(this.heading(t, "Before an account runs dry"))
+      .child(div().pb(4).text_size(12.5).line_height("18px").text_color(t.dim).child("Three marks on the fuel of the account in use. Under each one, orcha does a bit more to keep your work going. HAND OFF in Accounts does it any time."))
+      .child(this.handoffBar(h))
+      .child(percent("checklist_percent", "The agent in front of you writes what is done and what is next to the checklist file, so the next one can pick up.", "Ask for a checklist under"))
+      .child(percent("low_fuel_percent", "A note offers to move the chat to the account with the most fuel.", "Offer to switch under"))
+      .child(percent("auto_handoff_percent", "The chat moves to the account with the most fuel by itself, between turns.", "Switch by itself under"))
+      .child(div().pt(14))
+      .child(this.heading(t, "How a chat moves"))
+      .child(this.row(t, "Claude to another Claude account", "Keep running: same chat, no restart. Restart: same chat, the agent starts again on the account. New pane: a new agent beside the old one reads notes and sums up first. Another kind of agent always gets a new pane.", modePicker))
+      .child(
+        this.row(
+          t,
+          "Checklist file",
+          "Where the checklist goes, inside the project.",
+          div().text_size(12.5).text_color(t.foreground).child(h.checklist_file || HANDOFF_DEFAULTS.checklist_file),
+        ),
+      )
+      .child(div().pt(10).text_size(12).text_color(t.dim).child("Shared with orcha in the terminal. If both are open, leave “by itself” on in one of them only."));
   }
 
   // orcha: Layout --------------------------------------------------------
@@ -1152,6 +1343,7 @@ export default class Settings {
               if (s.id === "machines") cx.spawn(async (cx) => { await this.loadMachines(); cx.notify(); });
               if (s.id === "projects") this.loadProject(cx);
               if (s.id === "accounts") this.loadAccounts(cx);
+              if (s.id === "handoff") this.loadHandoff(cx);
               cx.notify();
             })
             .child(svg(s.svg ?? I(s.icon)).size(15).text_color(on ? t.accent : t.dim))
@@ -1210,6 +1402,8 @@ export default class Settings {
                       ? this.projects(t, cx)
                       : this.section === "accounts"
                         ? this.accounts(t, cx)
+                      : this.section === "handoff"
+                        ? this.handoff(t, cx)
                       : this.section === "orcha"
                         ? this.orchaLayout(t, cx)
                       : this.section === "look"

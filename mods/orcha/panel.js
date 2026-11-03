@@ -1,5 +1,6 @@
 // orcha's right panel: FUEL (the active account's plan limits), then the
-// focused folder's BRANCH, CHANGES, HISTORY and WORKTREES.
+// focused folder's BRANCH, CHANGES, HISTORY and WORKTREES. It also runs the
+// low-fuel watch (handoff-watch.js).
 //
 // Git is read with one shell call every 3 s; FUEL from orcha's limits cache
 // every 30 s. Rendering only draws the last answers.
@@ -8,6 +9,8 @@ import { div } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
 import { focused, spaces, exec, readTextFile, home, shared, setShared, openOverlay } from "herdr";
 import { tokens, button, icon, fuelGauge, readable } from "./ui.js";
+import { showSide } from "./sidetabs.js";
+import HandoffWatch from "./handoff-watch.js";
 
 // One call: branch line, changed files, totals, last commit, worktree count.
 const GIT_SCRIPT = [
@@ -66,6 +69,8 @@ export default class Panel {
     this.readFuel(cx);
     cx.timer.every(3000, (cx) => this.readGit(cx));
     cx.timer.every(30000, (cx) => this.readFuel(cx));
+    this.watch = new HandoffWatch();
+    cx.timer.every(60000, (cx) => this.watch.check(cx));
   }
 
   currentFolder() {
@@ -194,7 +199,12 @@ export default class Panel {
               .child(div().font_bold().text_color(readable(t, t.blocked)).child(`−${git.removed}`)),
             ...git.files.slice(0, 12).map((f) =>
               h_flex()
+                .id(`change-${f.path}`)
                 .gap(8)
+                .rounded(3)
+                .cursor_pointer()
+                .hover((s) => s.bg(t.hover))
+                .on_click(() => showSide("files"))
                 .text_size(12)
                 .child(div().w(16).font_bold().text_color(codeColor(f.code)).child(f.code === "??" ? "A" : f.code[0]))
                 .child(div().flex_1().truncate().text_color(t.foreground).child(f.path)),

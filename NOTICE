@@ -9,5 +9,10 @@ It includes:
   app (https://github.com/herdrdev/herdr-app, frame/settings/main.js),
   licensed under the Apache License, Version 2.0.
 
-- mods/orcha/icons/*.svg, from Lucide (https://lucide.dev), licensed under
-  the ISC License; see mods/orcha/icons/LICENSE.
+- mods/orcha/files.js, its file tree adapted from the files mod of the
+  Herdr desktop app (mods/files/main.js), licensed under the Apache
+  License, Version 2.0.
+
+- mods/orcha/icons/*.svg, from Phosphor Icons, Bold weight
+  (https://phosphoricons.com), licensed under the MIT License; see
+  mods/orcha/icons/LICENSE.

@@ -6,9 +6,10 @@
 #   sh install.sh          (from a clone)
 #
 # Run it again to update. Only orcha's own files are written
-# (layouts/orcha.json, themes/orcha-*, mods/orcha*), plus Cmd+, for the orcha
-# layout in keys.json and orcha's colors when no theme is picked yet;
-# Herdr's shipped files and your own are left alone.
+# (layouts/orcha.json, themes/orcha-*, mods/orcha*), plus orcha's keys for the
+# orcha layout in keys.json (Cmd+, Cmd+O Cmd+Shift+F Cmd+F) and orcha's
+# colors when no theme is picked yet; Herdr's shipped files and your own are
+# left alone.
 set -eu
 
 REPO="trungkien1208/orcha-app"
@@ -44,10 +45,13 @@ done
 for mod in "$src"/mods/orcha*; do
   name=$(basename "$mod")
   cp -R "$mod" "$stage/$name"
-  rm -rf "$dest/mods/$name"
+  # Move the old copy aside before deleting it: Herdr may write into a mod
+  # folder (jsconfig.json) while it is being removed.
+  [ ! -e "$dest/mods/$name" ] || mv "$dest/mods/$name" "$stage/$name.old"
   mv "$stage/$name" "$dest/mods/$name"
 done
-# Cmd+, opens orcha's settings while the orcha layout shows, and orcha's
+# Cmd+, opens orcha's settings and Cmd+O / Cmd+Shift+F / Cmd+F open FIND
+# while the orcha layout shows, and orcha's
 # colors are the theme unless the person already picked one (Settings › Look).
 python3 -I - "$dest" <<'PY'
 import json, os, sys
@@ -67,7 +71,12 @@ def update(path, change):
     os.replace(tmp, path)
 
 def bind(keys):
-    keys.setdefault("layout:orcha", {})["cmd-,"] = "mod.open:orcha"
+    mine = keys.setdefault("layout:orcha", {})
+    mine["cmd-,"] = "mod.open:orcha"
+    # FIND: a file by name, text in the project, text in the pane.
+    mine["cmd-o"] = "orcha.find-file"
+    mine["cmd-shift-f"] = "orcha.find-text"
+    mine["cmd-f"] = "orcha.find-pane"
     return True
 
 def colors(person):
