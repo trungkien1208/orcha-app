@@ -63,7 +63,7 @@ Want FUEL and ACCOUNTS too? Also install the terminal [orcha](https://github.com
 - 🚂 **PROCESS**: each working agent is a train between THINK, CODE, TEST and DONE. Click one to jump there.
 - ⛽ **FUEL**: what's left on the plan of the agent in front of you: Claude, Codex or Cursor.
 - 🔁 **ACCOUNTS**: add one, sign in, **SWITCH** the chat in front of you (keep running, restart, or a new pane with notes).
-- 📁 **FILES**: the project's files beside INFO, search by name or text, a viewer next to your work.
+- 📁 **FILES**: the project's files beside INFO, search by name or text, a viewer next to your work. Markdown reads as a page (flip to SOURCE any time).
 - 🔎 **FIND**: `⌘O` a file, `⌘⇧F` text in the project, `⌘F` text in the pane, `⌘L` links.
 - 🔗 **Links**: right-click a link in a terminal to open or copy it, even the ones Claude shows only by name, even when they wrap.
 - 🎨 **Looks**: folder tabs in the agent's color, Brutal, Matcha and Ocean themes, light and dark.
