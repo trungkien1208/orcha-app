@@ -10,10 +10,10 @@
 
 import { div } from "gpui-kit";
 import { v_flex, h_flex, InputState, Input } from "gpui-base";
-import { props, closeOverlay, focused, panes, hc, shared, setShared, notify } from "herdr";
+import { props, closeOverlay, focused, panes, shared, setShared, notify } from "herdr";
 import { tokens, raised, icon } from "./ui.js";
 import { location, projectRoot, findFiles, findText, openFile } from "./files.js";
-import { scanLinks, openLink } from "./links.js";
+import { scanLinks, openLink, readTerminal, transcriptLinks } from "./links.js";
 
 const MODES = [
   { id: "file", label: "FILE", key: "⌘O", hint: "Go to a file by name" },
@@ -93,15 +93,19 @@ export default class Finder {
     });
   }
 
-  // The pane's links, read once per FIND, filtered by what is typed.
+  // The pane's links, read once per FIND, filtered by what is typed: what
+  // Claude wrote as markdown links (the screen shows only their labels),
+  // then what the screen and history show.
   async findLinks(query) {
     if (!this.from?.terminal) return [];
     if (!this.links) {
-      const r = await hc(["read", this.from.terminal]);
-      this.links = scanLinks(r.stdout ?? "");
+      const written = this.from.program?.key?.includes("claude") ? await transcriptLinks(this.from.cwd) : [];
+      const shown = scanLinks(await readTerminal(this.from.terminal));
+      const seen = new Set(written.map((l) => l.raw));
+      this.links = [...written, ...shown.filter((l) => !seen.has(l.raw))];
     }
     const q = query.toLowerCase();
-    return q ? this.links.filter((l) => l.raw.toLowerCase().includes(q)) : this.links;
+    return q ? this.links.filter((l) => `${l.label ?? ""} ${l.raw}`.toLowerCase().includes(q)) : this.links;
   }
 
   async findInPane(query) {
@@ -112,8 +116,7 @@ export default class Finder {
       return view ? [{ viewer: true, path: view.path, text: `Show the lines with “${query}” in ${view.path.split("/").pop()}` }] : [];
     }
     if (!this.from?.terminal) return [];
-    const r = await hc(["read", this.from.terminal]);
-    const lines = (r.stdout ?? "").split("\n");
+    const lines = (await readTerminal(this.from.terminal)).split("\n");
     const out = [];
     for (let i = lines.length - 1; i >= 0 && out.length < PANE_HITS; i -= 1) {
       if (lines[i].toLowerCase().includes(q)) out.push({ line: i + 1, text: lines[i].trim().slice(0, 240), before: (lines[i - 1] ?? "").trim().slice(0, 240) });
@@ -188,7 +191,8 @@ export default class Finder {
     if (this.mode === "links") {
       return base
         .child(icon(r.url ? "globe" : /\/$/.test(r.raw) ? "folder" : "file", 14, fg))
-        .child(div().flex_1().min_w(0).truncate().text_color(fg).when(on, (el) => el.font_bold()).child(r.raw))
+        .when(Boolean(r.label), (el) => el.child(div().flex_none().max_w(220).truncate().font_bold().text_color(fg).child(r.label)))
+        .child(div().flex_1().min_w(0).truncate().text_color(r.label ? dim : fg).when(on && !r.label, (el) => el.font_bold()).child(r.raw))
         .child(div().flex_none().text_size(10.5).text_color(dim).child(r.url ? "web" : r.line ? `line ${r.line}` : ""))
         .child(
           div()

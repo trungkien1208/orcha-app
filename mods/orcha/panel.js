@@ -1,4 +1,5 @@
-// orcha's right panel: FUEL (the active account's plan limits), then the
+// orcha's right panel: FUEL (the plan limits of the account the focused
+// agent uses: Claude, Codex or Cursor), then the
 // focused folder's BRANCH, CHANGES, HISTORY and WORKTREES. It also runs the
 // low-fuel watch (handoff-watch.js).
 //
@@ -7,7 +8,7 @@
 
 import { div } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
-import { focused, spaces, exec, readTextFile, home, shared, setShared, openOverlay } from "herdr";
+import { focused, panes, spaces, exec, readTextFile, home, shared, setShared, openOverlay } from "herdr";
 import { tokens, button, icon, fuelGauge, readable } from "./ui.js";
 import { showSide } from "./sidetabs.js";
 import HandoffWatch from "./handoff-watch.js";
@@ -92,15 +93,26 @@ export default class Panel {
     });
   }
 
-  // The Claude account orcha has active, its email and both limits.
+  // The kind of agent in front of you: its fuel is the one shown.
+  focusedKind() {
+    const f = focused();
+    const key = (f?.pane ? panes().find((p) => p.pane === f.pane) : null)?.program?.key ?? "";
+    return key.includes("codex") ? "codex" : key.includes("cursor") ? "cursor" : "claude";
+  }
+
+  // The account of that kind orcha uses (Claude: the active one; others: the
+  // one last picked, else the first), its email and limits.
   readFuel(cx) {
+    const kind = this.focusedKind();
+    this.fuelKind = kind;
     cx.spawn(async (cx) => {
-      const id = (await readTextFile(`${home()}/.config/orcha/claude-active`))?.trim();
-      if (!id) return;
       const config = await readJson(`${home()}/.config/orcha/config.json`);
-      const limits = await readJson(`${home()}/.cache/orcha/limits/${id}.json`);
-      const account = (config?.accounts ?? []).find((a) => a.id === id);
-      this.fuel = { label: account?.label ?? id, email: account?.email ?? null, limits };
+      const accounts = (config?.accounts ?? []).filter((a) => a.kind === kind);
+      const pick = (await readTextFile(`${home()}/.config/orcha/${kind === "claude" ? "claude-active" : "selected-account"}`))?.trim();
+      const account = accounts.find((a) => a.id === pick) ?? (kind === "claude" ? null : accounts[0]);
+      if (!account || kind !== this.fuelKind) return;
+      const limits = await readJson(`${home()}/.cache/orcha/limits/${account.id}.json`);
+      this.fuel = { label: account.label ?? account.id, email: account.email ?? null, limits };
       cx.notify();
     });
   }
@@ -141,8 +153,10 @@ export default class Panel {
       .when(open, (el) => el.children(children));
   }
 
-  render(_cx) {
+  render(cx) {
     const t = tokens();
+    // FUEL follows the agent in front of you: Claude, Codex or Cursor.
+    if (this.focusedKind() !== this.fuelKind) this.readFuel(cx);
     const sections = [];
     if (this.fuel) {
       const rows = [
@@ -154,8 +168,11 @@ export default class Panel {
       ];
       const session = fuelGauge(t, "5H", this.fuel.limits?.session);
       const weekly = fuelGauge(t, "WEEK", this.fuel.limits?.weekly);
+      const monthly = fuelGauge(t, "MONTH", this.fuel.limits?.monthly);
       if (session) rows.push(session);
       if (weekly) rows.push(weekly);
+      if (monthly) rows.push(monthly);
+      if (this.fuel.limits?.note) rows.push(div().text_size(11).text_color(t.dim).child(this.fuel.limits.note));
       sections.push(
         this.section(t, "fuel", "FUEL", rows, {
           onClick: () => openOverlay({ mod: "orcha", props: { part: "accounts" }, kind: "dialog", width: 560, frame: "none" }),

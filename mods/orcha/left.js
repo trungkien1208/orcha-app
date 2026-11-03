@@ -68,11 +68,31 @@ function contextOf(usageLine) {
   return used > 0 ? used : null;
 }
 
+// A per-viewer list kept between restarts (localStorage can be missing).
+function stored(key) {
+  try {
+    return JSON.parse(localStorage.getItem(key) ?? "[]");
+  } catch {
+    return [];
+  }
+}
+function keep(key, set) {
+  try {
+    localStorage.setItem(key, JSON.stringify([...set]));
+  } catch {
+    // only a convenience
+  }
+}
+
 export default class Left {
   constructor(cx) {
     this.memory = new Map(); // terminal address → bytes
     this.changed = new Map(); // pane → { status, at }
     this.icons = {}; // project folder → emoji (orcha's project-icons.json)
+    // Projects opened or closed by their chevron, kept in this browser-like
+    // store: the open project shows its agents unless closed; others when opened.
+    this.opened = new Set(stored("orcha.opened"));
+    this.closed = new Set(stored("orcha.closed"));
     this.readIcons(cx);
     this.readMemory(cx);
     this.readTranscripts(cx);
@@ -272,6 +292,21 @@ export default class Left {
   }
 
   // A project: its tile, its name, its branch and agents, and how it is doing.
+  expanded(space) {
+    return space.active ? !this.closed.has(space.id) : this.opened.has(space.id);
+  }
+
+  // The chevron: shows or hides a project's agents without switching to it.
+  toggle(space, cx) {
+    const open = this.expanded(space);
+    const set = space.active ? this.closed : this.opened;
+    if (open === space.active) set.add(space.id);
+    else set.delete(space.id);
+    keep("orcha.opened", this.opened);
+    keep("orcha.closed", this.closed);
+    cx.notify();
+  }
+
   projectRow(k, space, mine) {
     const agentPanes = mine.filter((p) => p.program?.agent);
     const rank = Math.max(0, ...mine.map((p) => RANK[p.status] ?? 0));
@@ -308,14 +343,29 @@ export default class Left {
           .child(div().truncate().text_size(13.5).text_color(k.ink).when(space.active, (el) => el.font_black()).when(!space.active, (el) => el.font_semibold()).child(space.name))
           .when(Boolean(sub), (el) => el.child(div().truncate().text_size(11.5).text_color(k.muted).child(sub))),
       )
-      .when(Boolean(state), (el) => el.child(state));
+      .when(Boolean(state), (el) => el.child(state))
+      .child(
+        div()
+          .id(`fold-${space.id}`)
+          .flex_none()
+          .p(3)
+          .rounded(4)
+          .cursor_pointer()
+          .hover((s) => s.bg(k.hover))
+          .tooltip(this.expanded(space) ? "Hide its agents" : "Show its agents")
+          .on_click((_e, cx) => {
+            cx.stop_propagation();
+            this.toggle(space, cx);
+          })
+          .child(icon(this.expanded(space) ? "chevron-down" : "chevron-right", 13, k.dim)),
+      );
   }
 
-  // The selected project: a raised card with the yellow edge, its agents as
-  // cards, its shells as rows. Others: one row each.
+  // An expanded project: a raised card, its agents as cards, its shells as
+  // rows; the selected one has the yellow edge. Others: one row each.
   project(k, space, mine, byPane) {
     const head = this.projectRow(k, space, mine);
-    if (!space.active) return head;
+    if (!this.expanded(space)) return head;
     const agentsHere = mine.filter((p) => p.program?.agent);
     const shells = mine.filter((p) => !p.program?.agent);
     const card = v_flex()
@@ -325,7 +375,7 @@ export default class Left {
       .border_color(k.line)
       .bg(k.card)
       .overflow_hidden()
-      .child(div().absolute().top(0).left(0).w(5).h_full().bg(k.yellow))
+      .child(div().absolute().top(0).left(0).w(5).h_full().bg(space.active ? k.yellow : k.dim + "66"))
       .child(head.pl(12))
       .child(
         v_flex()

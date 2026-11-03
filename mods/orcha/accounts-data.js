@@ -8,6 +8,7 @@
 
 import { readTextFile, writeTextFile, exec, hc, home, run, focused, agents, panes } from "herdr";
 import { readTable, writeKey } from "./config.js";
+import { claudeTranscript, readTerminal } from "./links.js";
 
 const LIMITS = () => `${home()}/.orcha/scripts/limits.py`;
 const CONFIG = () => `${home()}/.config/orcha/config.json`;
@@ -137,14 +138,6 @@ export function focusedAgent() {
 
 const sh = (script, ...args) => exec("sh", ["-c", script, "orcha", ...args]);
 
-// The newest Claude conversation in `cwd` (Claude keeps one folder of them
-// per project; orcha links every account's to ~/.claude's).
-async function claudeTranscript(cwd) {
-  const dir = `${home()}/.claude/projects/${cwd.replace(/[/.]/g, "-")}`;
-  const r = await sh('ls -t "$1"/*.jsonl 2>/dev/null | head -n 1', dir);
-  return r.stdout.trim() || null;
-}
-
 const fence = (text) => ["```", text.trim(), "```", ""];
 
 async function buildNotes(from, checklistFile) {
@@ -180,8 +173,7 @@ async function buildNotes(from, checklistFile) {
   if (transcript) {
     lines.push("## Conversation", "", `The previous agent's conversation is in \`${transcript}\` (one JSON object per line, newest last). Read its last part first: the latest user requests and what the agent did about them.`, "");
   } else if (from.terminal) {
-    const screen = await hc(["read", from.terminal]);
-    const tail = (screen.stdout ?? "").split("\n").slice(-300).join("\n");
+    const tail = (await readTerminal(from.terminal)).split("\n").slice(-300).join("\n");
     if (tail.trim()) lines.push("## The previous agent's screen", "", ...fence(tail.slice(-60000)));
   }
   return lines.join("\n");

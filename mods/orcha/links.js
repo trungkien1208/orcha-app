@@ -7,7 +7,7 @@
 // Relative paths are the pane's, else the project's; a bare name is looked
 // for in the project.
 
-import { exec, window } from "herdr";
+import { exec, window, home, hc } from "herdr";
 import { readTable } from "./config.js";
 import { openFile } from "./files.js";
 
@@ -21,6 +21,60 @@ const PATH_RE = /^(~|\.{1,2})?\/?[\w@.+-]+(\/[\w@.+-]+)*\/?(:\d+){0,2}$/;
 // One-letter extensions only for real ones (.c .h .m .r .s .v .d), so "e.g" is no file.
 const HAS_EXT = /\.([A-Za-z][A-Za-z0-9]{1,7}|[chmrsvd])(:\d+){0,2}$/;
 const NOT_A_PATH = /^\d+(\.\d+)*(:\d+)*$|^\.+$|@.*\./;
+
+/** How much of a terminal's history is read for links (`hc read` gives only
+ *  the screen by default). */
+export const HISTORY_LINES = "3000";
+
+/** A terminal's screen and recent history, as text. */
+export async function readTerminal(address) {
+  return (await hc(["read", "--lines", HISTORY_LINES, address])).stdout ?? "";
+}
+
+/** The newest Claude conversation in `cwd` (Claude keeps one folder of them
+ *  per project; orcha links every account's to ~/.claude's), or null. */
+export async function claudeTranscript(cwd) {
+  const dir = `${home()}/.claude/projects/${cwd.replace(/[/.]/g, "-")}`;
+  const r = await exec("sh", ["-c", 'ls -t "$1"/*.jsonl 2>/dev/null | head -n 1', "orcha", dir]);
+  return r.stdout.trim() || null;
+}
+
+// [label](target) in what Claude wrote: a web address, or a path with an
+// optional :line or #L line.
+const MD_LINK = /\[([^\]\n]{1,120})\]\(([^)\s]+)\)/g;
+
+/** Links Claude wrote in the latest part of its conversation in `cwd`, as
+ *  markdown: the screen shows only their labels (terminal hyperlinks).
+ *  Newest first, with { label }. */
+export async function transcriptLinks(cwd, max = 200) {
+  const file = cwd && (await claudeTranscript(cwd));
+  if (!file) return [];
+  const r = await exec("tail", ["-n", "400", file]);
+  const out = [];
+  const seen = new Set();
+  const lines = r.stdout.split("\n").reverse();
+  for (const line of lines) {
+    if (!line.includes('"assistant"') || !line.includes("](")) continue;
+    let text = "";
+    try {
+      const msg = JSON.parse(line).message;
+      text = (Array.isArray(msg?.content) ? msg.content : []).filter((c) => c.type === "text").map((c) => c.text).join("\n");
+    } catch {
+      continue;
+    }
+    const found = [...text.matchAll(MD_LINK)];
+    for (const [, label, target] of found) {
+      if (seen.has(target) || out.length >= max) continue;
+      seen.add(target);
+      if (/^https?:\/\//.test(target)) out.push({ raw: target, label, url: true });
+      else {
+        const m = /^(.*?)(?:#L(\d+)|:(\d+))?(?:-L?\d+)?$/.exec(target);
+        out.push({ raw: target, label, path: m[1], line: Number(m[2] ?? m[3]) || null });
+      }
+    }
+  }
+  return out;
+}
 
 /** The links in `text`, newest (lowest on screen) first, each once:
  *  { raw, url } for a web address, { raw, path, line } for a file path. */
