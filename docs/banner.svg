@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 460" width="1200" height="460">
+<style>
+  .wob { animation: wob 2.2s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+  .wob2 { animation: wob 2.8s ease-in-out infinite reverse; transform-box: fill-box; transform-origin: center; }
+  .bob { animation: bob 1.8s ease-in-out infinite; }
+  .zoom { animation: zoom 3s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+  @keyframes wob { 50% { transform: rotate(-3deg) scale(1.03); } }
+  @keyframes bob { 50% { transform: translateY(-8px); } }
+  @keyframes zoom { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(14px); } }
+  @media (prefers-reduced-motion: reduce) { .wob, .wob2, .bob, .zoom { animation: none; } }
+  text { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; }
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+</style>
+<defs>
+  <pattern id="dots" width="18" height="18" patternUnits="userSpaceOnUse"><circle cx="3" cy="3" r="2" fill="#111" opacity="0.13"/></pattern>
+  <pattern id="stripes" width="28" height="28" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="14" height="28" fill="#111" opacity="0.9"/></pattern>
+</defs>
+<rect width="1200" height="460" fill="#9fd36a"/>
+<rect width="1200" height="460" fill="url(#dots)"/>
+<rect x="0" y="420" width="1200" height="40" fill="#f2c53d"/>
+<rect x="0" y="420" width="1200" height="40" fill="url(#stripes)" opacity="0.18"/>
+
+<!-- headline card -->
+<rect x="58" y="58" width="640" height="310" fill="#111"/>
+<rect x="46" y="46" width="640" height="310" fill="#fff4d6" stroke="#111" stroke-width="5"/>
+<text x="76" y="128" font-size="64" font-weight="900" fill="#111" letter-spacing="-2">THE GOAT</text>
+<text x="76" y="204" font-size="64" font-weight="900" fill="#111" letter-spacing="-2">GOT A WHALE.</text>
+<rect x="72" y="226" width="430" height="44" fill="#f0447a" transform="rotate(-2 287 248)"/>
+<text x="86" y="258" font-size="27" font-weight="900" fill="#fff" transform="rotate(-2 287 248)">Herdr app, but it slaps.</text>
+<text x="76" y="312" font-size="20" fill="#3a3a3a">Projects, agents, fuel, files, links. One window.</text>
+<text x="76" y="338" font-size="20" fill="#3a3a3a">Not a fork. Just a very loud outfit.</text>
+
+<!-- stickers -->
+<g class="wob"><rect x="560" y="18" width="190" height="46" rx="23" fill="#7f9bff" stroke="#111" stroke-width="4"/>
+<text x="655" y="49" text-anchor="middle" font-size="20" font-weight="900" fill="#111">100% MOD</text></g>
+<g class="wob2"><rect x="470" y="378" width="260" height="34" fill="#111" transform="rotate(3 600 395)"/>
+<text x="600" y="402" text-anchor="middle" class="mono" font-size="16" font-weight="800" fill="#f2c53d" transform="rotate(3 600 395)">⚠ MAY CAUSE SHIPPING</text></g>
+
+<!-- goat -->
+<g class="bob"><circle cx="830" cy="250" r="78" fill="#fff4d6" stroke="#111" stroke-width="5"/>
+<text x="830" y="282" text-anchor="middle" font-size="92">🐐</text></g>
+<rect x="740" y="120" width="132" height="54" rx="14" fill="#fff" stroke="#111" stroke-width="4"/>
+<path d="M800 174 L812 196 L824 174 Z" fill="#fff" stroke="#111" stroke-width="4" stroke-linejoin="round"/>
+<rect x="796" y="170" width="32" height="8" fill="#fff"/>
+<text x="806" y="156" text-anchor="middle" font-size="26" font-weight="900" fill="#111">baa?</text>
+
+<!-- whale -->
+<g class="zoom"><circle cx="1040" cy="210" r="112" fill="#f2c53d" stroke="#111" stroke-width="6"/>
+<text x="1040" y="256" text-anchor="middle" font-size="130">🐋</text>
+<rect x="958" y="318" width="164" height="40" fill="#111" transform="rotate(-4 1040 338)"/>
+<text x="1040" y="346" text-anchor="middle" class="mono" font-size="22" font-weight="900" fill="#9fd36a" transform="rotate(-4 1040 338)">ORCHA</text></g>
+<text x="944" y="78" font-size="40">💨</text>
+<text x="1124" y="110" font-size="34">✨</text>
+<text x="1170" y="400" text-anchor="end" class="mono" font-size="15" font-weight="800" fill="#111">🍵 matcha-powered · zero tab chaos</text>
+</svg>

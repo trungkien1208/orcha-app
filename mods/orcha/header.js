@@ -5,7 +5,7 @@
 // leaves them room. Dragging it moves the window.
 //
 // The header is the one copy of orcha that listens for its keys (keys.json,
-// layout:orcha): orcha.settings (⌘,), orcha.find-file (⌘O), orcha.find-text (⌘⇧F),
+// layout:orcha): orcha.settings (⌘,), orcha.accounts, orcha.find-file (⌘O), orcha.find-text (⌘⇧F),
 // orcha.find-pane (⌘F), orcha.find-link (⌘L) open FIND (finder.js).
 
 import { div } from "gpui-kit";
@@ -41,6 +41,11 @@ export function openSettings() {
   openOverlay({ mod: "orcha", props: { part: "settings" }, kind: "dialog", width: 900, height: 620 });
 }
 
+/** Opens ACCOUNTS. */
+export function openAccounts() {
+  openOverlay({ mod: "orcha", props: { part: "accounts" }, kind: "dialog", width: 560, frame: "none" });
+}
+
 /** Opens FIND on one of its tabs: "file", "text", "pane" or "links". */
 export function openFinder(mode) {
   openOverlay({ mod: "orcha", props: { part: "finder", mode }, kind: "dialog", width: 650, height: 470, frame: "none" });
@@ -54,6 +59,7 @@ export default class Header {
         const mode = { "find-file": "file", "find-text": "text", "find-pane": "pane", "find-link": "links" }[command];
         if (mode) openFinder(mode);
         else if (command === "settings") openSettings();
+        else if (command === "accounts") openAccounts();
       }
     });
   }
@@ -114,7 +120,7 @@ export default class Header {
       .child(div().w(340).flex_shrink(1).min_w(160).child(search))
       .child(div().flex_1())
       .child(square(k, "orcha-palette", "command", "Commands (⌘⇧P)", () => run("app.palette")))
-      .child(square(k, "orcha-accounts", "user-round", "Accounts", () => openOverlay({ mod: "orcha", props: { part: "accounts" }, kind: "dialog", width: 560, frame: "none" })))
+      .child(square(k, "orcha-accounts", "user-round", "Accounts", openAccounts))
       .child(square(k, "orcha-settings", "settings", "Settings (⌘,)", openSettings));
   }
 }

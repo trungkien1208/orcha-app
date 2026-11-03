@@ -1,173 +1,159 @@
-# orcha for Herdr 🐋🍵
+<p align="center">
+  <img src="docs/banner.svg" alt="The goat got a whale: Herdr app, but it slaps. Projects, agents, fuel, files, links in one window." width="100%" />
+</p>
 
-orcha's cockpit for the [Herdr desktop app](https://github.com/herdrdev/herdr-app). You get your projects in a sidebar, every agent's state at a glance, fuel for each account, and git on the side.
+<p align="center">
+  <a href="#install-30-seconds"><b>Install</b></a> ·
+  <a href="#why-the-whale-and-not-just-the-goat--vs-">Why</a> ·
+  <a href="#what-you-get">What you get</a> ·
+  <a href="https://github.com/trungkien1208/orcha">orcha (terminal)</a> ·
+  <a href="https://github.com/trungkien1208/orcha-app/releases/latest">What's new</a>
+</p>
 
-**This is not an app of its own.** It's a skin plus a plugin for Herdr. Herdr is the app you open; orcha-app changes how it looks and adds orcha's panels. Think of a phone (Herdr) and a case with extra buttons (orcha-app).
+## What is this? 🤔
 
-## How the pieces fit
+The [Herdr desktop app](https://github.com/herdrdev/herdr-app) runs your coding agents. **orcha-app** gives it [orcha](https://github.com/trungkien1208/orcha)'s brain and a very loud outfit: projects, every agent's state, fuel per account, files, find, links.
 
-| Piece | What it does | Need it? |
+It's **not a fork**. Just a layout, some themes and one plugin. Herdr keeps updating itself; the whale rides along. 🐋
+
+<p align="center"><img src="docs/tabs.png" alt="Folder tabs in each agent's color, joined to the pane's title bar with the model, state and context" width="100%" /></p>
+
+## Why the whale and not just the goat? 🐐 vs 🐋
+
+Herdr's logo is a goat. We love the goat. The goat is the engine. orcha is what happens when the goat gets a cockpit.
+
+| | 🐐 Herdr app, plain | 🐋 + orcha-app |
 | --- | --- | --- |
-| **Herdr app** (`herdr-app`) | The window. Draws everything, runs your terminals and agents. | Yes |
-| **orcha-app** (this repo) | orcha's layout, themes and one mod, copied into Herdr's config folder. | Yes |
-| **orcha** in the terminal ([repo](https://github.com/trungkien1208/orcha)) | Keeps your accounts and fuel. | Only for FUEL and ACCOUNTS |
+| Projects | a list | cards with every agent, its model, context and RAM |
+| Who's working? | squint at tabs | PROCESS: a train per agent, THINK → CODE → TEST → DONE |
+| Running out of plan | surprise! | FUEL per account, one click to SWITCH, auto hand-off |
+| Find stuff | 🤷 | `⌘O` files, `⌘⇧F` text, `⌘L` every link an agent printed |
+| Looks like | a terminal | a sticker bomb with taste |
 
-Nothing in Herdr gets changed or forked. Herdr keeps updating itself, and orcha keeps working on top.
+## Install (30 seconds)
 
-## Install
-
-You need `curl` and `python3` (both come with macOS).
-
-**1. Install Herdr** (skip if you have it):
+macOS, two lines:
 
 ```sh
+# 1. the goat (skip if you have Herdr)
 curl -fsSL https://releases.herdr.dev/app/install.sh | sh
-```
 
-**2. Install orcha's look:**
-
-```sh
+# 2. the whale
 curl -fsSL https://raw.githubusercontent.com/trungkien1208/orcha-app/HEAD/install.sh | sh
 ```
 
-**3. Switch Herdr to orcha.** Open Herdr, press `⌘⇧P` (command palette), type `layout.switch`, pick **orcha**.
+Open Herdr → `⌘⇧P` → `layout.switch` → **orcha**. Done. 🎉
 
-That's it. You should see the projects on the left, PROCESS at the bottom left and FUEL on the right. If you don't, see [Something looks wrong](#something-looks-wrong).
+Want FUEL and ACCOUNTS too? Also install the terminal [orcha](https://github.com/trungkien1208/orcha): they read its accounts. Update = run line 2 again.
 
-**Optional:** install the terminal [orcha](https://github.com/trungkien1208/orcha) too if you want FUEL and account switching.
+## What you get
 
-## A quick tour
+<table>
+  <tr>
+    <td width="50%"><img src="docs/agents.png" alt="An open project: one card per agent with model, context and RAM" /></td>
+    <td width="50%"><img src="docs/process.png" alt="PROCESS: a little train per working agent between THINK, CODE, TEST and DONE" /></td>
+  </tr>
+  <tr>
+    <td align="center"><sub><b>Projects</b> · open as many as you like, every agent at a glance</sub></td>
+    <td align="center"><sub><b>PROCESS</b> · trains. yes, trains. 🚂</sub></td>
+  </tr>
+</table>
 
-```
-┌──────────────┬───────────────────────────┬──────────────┐
-│ + NEW   ☰    │  tabs                     │ INFO | FILES │
-│              ├───────────────────────────┤ FUEL         │
-│ PROJECTS     │                           │ branch       │
-│  🍵 my-app   │   your agents and         │ changes      │
-│   └ agent    │   terminals               │ history      │
-│  🚀 api      │                           │ worktrees    │
-│              │                           │              │
-│ PROCESS      │                           │              │
-│ OPUS ●━🚂○─🏁 │                           │              │
-├──────────────┴───────────────────────────┴──────────────┤
-│ status bar: how the open agent is doing                 │
-└─────────────────────────────────────────────────────────┘
-```
-
-- **Projects** (left): each project with its icon (click it to pick one of ~150 emoji by group or by word, or paste any emoji), its branch and how its agents are doing. A project opens when you select it and stays open; its arrow closes it, or opens another without switching to it. Open as many as you like. An open project shows a card for each agent: what it's working on, its model, how long it has been going, and how much context and memory it uses (green is fine, yellow is getting full, red means trouble).
-- **PROCESS** (bottom left): every working agent is a little train. More on that [below](#process-the-trains).
-- **Right panel**, two tabs on top:
-  - **INFO**: FUEL (how much the account of the agent in front of you has left: Claude, Codex or Cursor; click it to open ACCOUNTS), the current branch with buttons to open your editor or Git app, what changed, recent commits and worktrees (extra copies of the project on other branches).
-  - **FILES**: the files of the folder you're in, and a search box over the whole project (by NAME, or TEXT inside the files). Click a file and it opens in a viewer beside your work; the viewer is reused while it stays open. Clicking a changed file in INFO opens this tab too.
-- **Header**: how many projects and agents (the red "needs you" blinks), a search box that opens FIND, and buttons for the command palette (`⌘⇧P`), ACCOUNTS and Settings.
-- **FIND**, like in a code editor:
-
-  | Keys | Finds |
-  | --- | --- |
-  | `⌘O` | a file of the project by name (type a few letters, `↵` opens it) |
-  | `⌘⇧F` | text inside the project's files; the viewer lists the lines that hold it |
-  | `⌘F` | text in the pane you're in: a terminal's history, or the file the viewer shows |
-  | `⌘L` | links and file paths the pane printed, newest first |
-
-  `Tab` switches between them. `⌘P` stays Herdr's terminal picker.
-- **Open what agents print.** `⌘L` lists the web addresses and file paths in the pane, including links Claude shows only by their name (an artifact, a doc), read from its conversation; `↵` opens one: a page in your browser, a folder in Finder, a picture, PDF or document in its app, code in the viewer (at its line, for `file.rs:42`). `⌘C` or a row's copy button copies it.
-- **Right-click a link** in a terminal for **Open link** and **Copy link**, even a link Claude shows only by its name. Links cut across rows count as one, and clicking either part works. In a split tab, orcha learns where a pane is when the pointer passes over its title bar; if a right-click finds nothing, select the link first. A path that isn't where it says is looked for in the project. To open a file type in your editor instead, set it in orcha's `config.toml`:
-
-  ```toml
-  [orcha.open_with]
-  md = "editor"          # cursor, code or zed, at the line
-  png = "system"         # the system's app
-  log = "folder"         # show it in Finder
-  rs = "editor:zed {path}:$L"
-  ```
-- **Tabs and title bars** take the agent's color: Claude yellow, Codex green, Cursor blue, a plain shell teal. The open tab joins its title bar like a folder; each tab shows its agent's icon and a dot for its state. The title bar says the model, the state and for how long, and the context used.
-- **Right-click** a project or a pane to open, rename, split, zoom or close it; right-click inside a terminal to open the selected path or link, list the pane's links, split or zoom.
-- **Settings** (`⌘,` or the gear in the header): Herdr's own settings, with orcha's on top: working rules and skills per project (one tab per project), accounts, hand-off, and which panels to show.
-- **Themes**: Brutal, Matcha and Ocean, each in light and dark. Pick one in Settings › Look.
-
-### PROCESS: the trains
-
-Each agent that's working gets its own line with four stops:
-
-| Stop | The agent is... |
-| --- | --- |
-| **THINK** | reading files, searching, planning |
-| **CODE** | editing files or running commands |
-| **TEST** | running tests, linters or type checks |
-| **DONE** | finished |
-
-The train runs between the stop it reached and the next one, puffing smoke, and the next stop blinks. When the agent moves on, the train glides to the next stretch. At DONE it parks under the checkered flag. Click a train to jump to that agent. When an agent stops working, its train goes back to the depot. You can hide PROCESS in Settings.
-
-## Accounts and hand-off
-
-orcha keeps several accounts (say, a personal and a work Claude plan) and shows how much fuel each one has left. Open **ACCOUNTS** from the header or by clicking FUEL.
-
-- **SWITCH** moves the chat in front of you to that account. Claude to Claude asks how (or do what Settings › Hand-off says):
-  - **Keep running**: same chat, no restart. Claude picks up the new sign-in within half a minute. Chats started in the same folder move with it.
-  - **Restart**: same chat, Claude starts again on the account.
-  - **New pane**: a new agent opens beside the old one with short notes (what the work is, git state, where the old chat is), sums up and waits for your go.
-  - Switching to another kind of agent (Codex, Cursor) always takes a new pane. With no agent in front, Claude chats move to the account.
-- **ADD ACCOUNT** (or `a`): give it a name, then sign in in the pane that opens. Its chats, settings and skills are shared with your other accounts.
-- **SIGN IN** shows on an account orcha can't read fuel for, with the reason. After signing in, FUEL reads the new sign-in by itself; `r` asks every account right now.
-
-**Settings › Hand-off** puts three marks on the fuel bar of the account in use:
-
-| Under this mark | orcha... |
-| --- | --- |
-| Checklist | asks the agent in front of you to write what's done and what's next to `.orcha/handoff.md` |
-| Offer | shows a note offering to switch to the account with the most fuel |
-| Auto | moves the chat to that account by itself, once the agent is between turns |
-
-Checklist and Auto are off until you set them. These settings are shared with orcha in the terminal; if both are open, turn on Auto in one of them only.
-
-## Update
-
-Run the install command from step 2 again. It only replaces orcha's own files.
-
-## Uninstall
-
-```sh
-cd ~/.config/herdr-app
-rm -rf layouts/orcha.json themes/orcha-*.json mods/orcha
-```
-
-Then switch Herdr back to another layout (`⌘⇧P` → `layout.switch`). The installer also added a `layout:orcha` entry to `keys.json` (for `⌘,`); it does nothing once the layout is gone, so you can leave it or delete it.
-
-## Something looks wrong
-
-- **Herdr looks the same after installing.** You're still on another layout. `⌘⇧P` → `layout.switch` → **orcha**.
-- **FUEL and ACCOUNTS are empty.** They come from the terminal [orcha](https://github.com/trungkien1208/orcha): install it, then add an account in ACCOUNTS.
-- **A panel shows an error or stays blank.** Run `herdr-app check ~/.config/herdr-app/mods/orcha`. It tells you what broke. Then [open an issue](https://github.com/trungkien1208/orcha-app/issues) with that output.
-- **Two Claude chats show the same model and context.** Known: those numbers come from the newest Claude chat in the agent's folder, so chats in the same folder share them.
-- **Agents are gone after a reboot.** Herdr opens fresh shells after a restart; it doesn't bring agents back (yet).
-- **Signed in, but FUEL still says the sign-in expired.** Update the terminal orcha: older versions read the old sign-in. Then sign in once more.
+- 🗂 **Projects**: cards per agent (model, context, RAM in green, yellow, red). Pick an icon from ~150 emoji.
+- 🚂 **PROCESS**: each working agent is a train between THINK, CODE, TEST and DONE. Click one to jump there.
+- ⛽ **FUEL**: what's left on the plan of the agent in front of you: Claude, Codex or Cursor.
+- 🔁 **ACCOUNTS**: add one, sign in, **SWITCH** the chat in front of you (keep running, restart, or a new pane with notes).
+- 📁 **FILES**: the project's files beside INFO, search by name or text, a viewer next to your work.
+- 🔎 **FIND**: `⌘O` a file, `⌘⇧F` text in the project, `⌘F` text in the pane, `⌘L` links.
+- 🔗 **Links**: right-click a link in a terminal to open or copy it, even the ones Claude shows only by name, even when they wrap.
+- 🎨 **Looks**: folder tabs in the agent's color, Brutal, Matcha and Ocean themes, light and dark.
 
 <details>
-<summary><b>Where the installer writes</b></summary>
+<summary><b>Keys</b></summary>
 
-Everything goes into `~/.config/herdr-app` (or `$HERDR_APP_HOME` if set):
+| Keys | Does |
+| --- | --- |
+| `⌘O` | open a file by name |
+| `⌘⇧F` | search text in the project |
+| `⌘F` | search what the pane shows |
+| `⌘L` | links and paths the pane printed (`⌘C` copies one) |
+| `⌘,` | settings |
 
-- `layouts/orcha.json`: where every panel sits.
-- `themes/orcha-*.json`: the six themes.
-- `mods/orcha/`: the mod that draws orcha's panels.
-- `keys.json`: `⌘,` (settings), `⌘O`, `⌘⇧F`, `⌘F` and `⌘L` (FIND), only while the orcha layout is on.
-- `settings.json`: sets Matcha as the theme, only if you haven't picked one yet.
+`⌘P` stays Herdr's terminal picker. All of these work only while the orcha layout is on.
 
-Herdr's own files and yours are left alone. Herdr picks up the changes live, no restart needed.
+</details>
+
+<details>
+<summary><b>Accounts, switching and hand-off</b></summary>
+
+- **SWITCH** moves the chat in front of you to an account. Claude to Claude asks how, unless Settings › Hand-off already says:
+  - **Keep running**: same chat, no restart; Claude picks up the new sign-in within half a minute. Every chat started in the same folder moves with it.
+  - **Restart**: same chat, Claude starts again on the account. Only this pane moves.
+  - **New pane**: a new agent opens beside the old one with short notes, sums up and waits for your go.
+  - Another kind of agent (Codex, Cursor) always gets a new pane.
+- **Two accounts in two projects at once?** Yes: open Claude normally in one, and in the other SWITCH with **Restart** or **New pane**.
+- **ADD ACCOUNT** (`a`): name it, sign in in the pane that opens. Chats, settings and skills are shared between accounts.
+- **SIGN IN** shows when orcha can't read an account's fuel, with the reason. `r` asks every account right now.
+- **Settings › Hand-off** puts three marks on the fuel bar: ask the agent for a checklist, offer to switch, switch by itself. Shared with the terminal orcha; turn on "by itself" in only one of them.
+
+</details>
+
+<details>
+<summary><b>Opening links and files</b></summary>
+
+A page opens in your browser, a folder in Finder, a picture, PDF or document in its app, code in the viewer at its line (`file.rs:42`). A path that isn't where it says is looked for in the project. Links Claude shows only by name are read from its conversation.
+
+In a split tab, orcha learns where a pane is when the pointer passes over its title bar; if a right-click finds nothing, select the link first.
+
+Open a file type somewhere else in orcha's `config.toml`:
+
+```toml
+[orcha.open_with]
+md = "editor"          # cursor, code or zed, at the line
+png = "system"         # the system's app
+log = "folder"         # show it in Finder
+rs = "editor:zed {path}:$L"
+```
+
+</details>
+
+<details>
+<summary><b>Something looks wrong</b></summary>
+
+- **Herdr looks the same.** Still on another layout: `⌘⇧P` → `layout.switch` → **orcha**.
+- **FUEL and ACCOUNTS are empty.** Install the terminal [orcha](https://github.com/trungkien1208/orcha), then add an account.
+- **Signed in, but FUEL says the sign-in expired.** Update the terminal orcha (older ones read the old sign-in), then sign in once more.
+- **Herdr says "out of memory" after updates.** Quit it (`⌘Q`) and open it again. Your agents keep running.
+- **A panel is blank.** `herdr-app check ~/.config/herdr-app/mods/orcha` says what broke. [Open an issue](https://github.com/trungkien1208/orcha-app/issues) with it.
+- **Two Claude chats in one folder show the same model.** Known: they share the folder's newest conversation.
+- **Agents gone after a reboot.** Herdr opens fresh shells; it doesn't bring agents back (yet).
+
+</details>
+
+<details>
+<summary><b>Uninstall, and where the installer writes</b></summary>
+
+Everything lives in `~/.config/herdr-app` (or `$HERDR_APP_HOME`): `layouts/orcha.json`, `themes/orcha-*.json`, `mods/orcha/`, orcha's keys in `keys.json` (only for the orcha layout) and the Matcha theme in `settings.json` if you had none. Herdr's own files and yours are left alone.
+
+```sh
+cd ~/.config/herdr-app && rm -rf layouts/orcha.json themes/orcha-*.json mods/orcha
+```
+
+Then `⌘⇧P` → `layout.switch` back to another layout.
 
 </details>
 
 <details>
 <summary><b>For contributors</b></summary>
 
-- `mods/orcha/` is the mod. `main.js` picks the part a layout block asks for (`header`, `left`, `tabs`, `pane`, `panel`, `status`) or a popup (`settings`, `accounts`, `menu`, `icon`). `ui.js` holds the look.
-- `mods/orcha/catalog.js` is generated from orcha's `src/orcha_rules.rs`: run `python3 gen-catalog.py` (or `python3 gen-catalog.py ../orcha` for a local checkout) after orcha's rules or skills change.
-- `mods/orcha/settings.js` starts from Herdr's own settings page; compare it with a new Herdr's `frame/settings/main.js` when Herdr updates.
-- Animate with Herdr's native `.loop`, `.transition` and `.frames`, not timers: every redraw repaints the whole window.
-- Test loop: `sh install.sh`, then `herdr-app check ~/.config/herdr-app/mods/orcha`, then `herdr-app shot shot.png` to see the window (keep it visible, a hidden window keeps an old frame).
+- `mods/orcha/` is the plugin. `main.js` picks the part a layout block asks for; `ui.js` holds the look.
+- `catalog.js` is generated from orcha's `src/orcha_rules.rs`: `python3 gen-catalog.py ../orcha`.
+- `settings.js` starts from Herdr's settings page: compare with a new Herdr's `frame/settings/main.js` on updates.
+- Animate with Herdr's native `.loop`, `.transition` and `.frames`, never timers.
+- Loop: `sh install.sh`, `herdr-app check ~/.config/herdr-app/mods/orcha`, `herdr-app shot shot.png`. Herdr refuses reloads after many in one run: batch your installs.
 
 </details>
 
 ## License
 
-Apache-2.0. See [NOTICE](NOTICE) for the parts that come from Herdr and Phosphor Icons.
+Apache-2.0. See [NOTICE](NOTICE) for the parts from Herdr and Phosphor Icons. The goat is Herdr's. The whale is ours. 🐋🍵
