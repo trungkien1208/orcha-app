@@ -76,6 +76,50 @@ export async function transcriptLinks(cwd, max = 200) {
   return out;
 }
 
+/** The links on a terminal's screen and where: [{ link, row, from, to }], in
+ *  rows and columns. A web address cut by the right edge goes on in the next
+ *  row. `written` are links Claude wrote: found by the label the screen shows. */
+export function placeLinks(screen, cols, written = []) {
+  const rows = screen.split("\n");
+  const out = [];
+  let carried = null; // the part of an address cut at the end of the row above
+  rows.forEach((text, row) => {
+    let rest = text;
+    if (carried) {
+      const at = text.indexOf(carried.tail);
+      out.push({ link: carried.link, row, from: at, to: at + carried.tail.length });
+      rest = rest.slice(0, at) + " ".repeat(carried.tail.length) + rest.slice(at + carried.tail.length);
+      carried = null;
+    }
+    for (const m of text.matchAll(URL_RE)) {
+      const end = m.index + m[0].length;
+      if (rest.slice(m.index, end).trim() === "") continue;
+      // Cut at the edge: the rest of the address starts the next row.
+      const tail = cols && end >= cols - 1 ? /^\s*([^\s<>"'`|\]]*)/.exec(rows[row + 1] ?? "")?.[1] ?? "" : "";
+      const link = { raw: (m[0] + tail).replace(/[.,;:!?)]+$/, ""), url: true };
+      out.push({ link, row, from: m.index, to: end });
+      if (tail) carried = { link, tail };
+      rest = rest.slice(0, m.index) + " ".repeat(m[0].length) + rest.slice(end);
+    }
+    for (const m of rest.matchAll(/[\w@.+\-/~:]+/g)) {
+      const found = scanLinks(m[0], 1)[0];
+      if (found) out.push({ link: found, row, from: m.index, to: m.index + m[0].length });
+    }
+    for (const link of written) {
+      const at = link.label ? text.indexOf(link.label) : -1;
+      if (at >= 0) out.push({ link, row, from: at, to: at + link.label.length });
+    }
+  });
+  return out;
+}
+
+/** The link at a cell of the screen, or null. One column of grace: a click
+ *  lands on the edge of a character as easily as inside it. */
+export function linkAt(placed, cell) {
+  if (!cell) return null;
+  return placed.find((p) => p.row === cell.row && cell.col >= p.from - 1 && cell.col <= p.to)?.link ?? null;
+}
+
 /** The links in `text`, newest (lowest on screen) first, each once:
  *  { raw, url } for a web address, { raw, path, line } for a file path. */
 export function scanLinks(text, max = 300) {

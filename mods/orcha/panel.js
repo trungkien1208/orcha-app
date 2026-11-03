@@ -12,7 +12,7 @@ import { focused, panes, spaces, exec, readTextFile, home, shared, setShared, op
 import { tokens, button, icon, fuelGauge, readable } from "./ui.js";
 import { showSide } from "./sidetabs.js";
 import HandoffWatch from "./handoff-watch.js";
-import { refreshFuel } from "./accounts-data.js";
+import { refreshFuel, claudeAccountOf } from "./accounts-data.js";
 
 // One call: branch line, changed files, totals, last commit, worktree count.
 const GIT_SCRIPT = [
@@ -105,17 +105,21 @@ export default class Panel {
     return key.includes("codex") ? "codex" : key.includes("cursor") ? "cursor" : "claude";
   }
 
-  // The account of that kind orcha uses (Claude: the active one; others: the
-  // one last picked, else the first), its email and limits.
+  // The account the agent in front of you runs on (a Claude: the one in its
+  // config folder, else the active one; others: the one last picked, else the
+  // first), its email and limits.
   readFuel(cx) {
     const kind = this.focusedKind();
-    this.fuelKind = kind;
+    const f = focused();
+    const asked = (this.fuelKey = `${kind}:${f?.pane ?? ""}:${shared("orcha.fuelRev") ?? 0}`);
     cx.spawn(async (cx) => {
       const config = await readJson(`${home()}/.config/orcha/config.json`);
       const accounts = (config?.accounts ?? []).filter((a) => a.kind === kind);
-      const pick = (await readTextFile(`${home()}/.config/orcha/${kind === "claude" ? "claude-active" : "selected-account"}`))?.trim();
-      const account = accounts.find((a) => a.id === pick) ?? (kind === "claude" ? null : accounts[0]);
-      if (!account || kind !== this.fuelKind) return;
+      const pick = kind === "claude" && f?.terminal ? await claudeAccountOf(f.terminal) : null;
+      const file = kind === "claude" ? "claude-active" : "selected-account";
+      const fallback = pick ?? (await readTextFile(`${home()}/.config/orcha/${file}`))?.trim();
+      const account = accounts.find((a) => a.id === fallback) ?? (kind === "claude" ? null : accounts[0]);
+      if (!account || asked !== this.fuelKey) return;
       const limits = await readJson(`${home()}/.cache/orcha/limits/${account.id}.json`);
       this.fuel = { label: account.label ?? account.id, email: account.email ?? null, limits };
       cx.notify();
@@ -167,8 +171,8 @@ export default class Panel {
 
   render(cx) {
     const t = tokens();
-    // FUEL follows the agent in front of you: Claude, Codex or Cursor.
-    if (this.focusedKind() !== this.fuelKind) this.readFuel(cx);
+    // FUEL follows the agent in front of you, and any switch of account.
+    if (`${this.focusedKind()}:${focused()?.pane ?? ""}:${shared("orcha.fuelRev") ?? 0}` !== this.fuelKey) this.readFuel(cx);
     const sections = [];
     if (this.fuel) {
       const rows = [
@@ -185,6 +189,7 @@ export default class Panel {
       if (weekly) rows.push(weekly);
       if (monthly) rows.push(monthly);
       if (this.fuel.limits?.note) rows.push(div().text_size(11).text_color(t.dim).child(this.fuel.limits.note));
+      if (this.fuel.limits?.error) rows.push(div().text_size(11.5).text_color(readable(t, t.blocked)).child(this.fuel.limits.error));
       sections.push(
         this.section(t, "fuel", "FUEL", rows, {
           onClick: () => openOverlay({ mod: "orcha", props: { part: "accounts" }, kind: "dialog", width: 560, frame: "none" }),

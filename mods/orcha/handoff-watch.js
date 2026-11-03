@@ -7,7 +7,7 @@
 
 import { agents, notify, setShared } from "herdr";
 import { fuelLeft } from "./ui.js";
-import { readAccounts, readHandoff, activateAccount, handOff, restartOn, askForChecklist, focusedAgent } from "./accounts-data.js";
+import { readAccounts, readHandoff, keepRunningOn, handOff, restartOn, askForChecklist, focusedAgent } from "./accounts-data.js";
 
 // The tighter of an account's limits, and when that window resets.
 function fuel(account) {
@@ -45,7 +45,7 @@ export default class HandoffWatch {
         const between = from && agents().find((a) => a.pane === from.pane)?.status !== "working";
         if (between && once("auto")) {
           const way = h.switch_mode === "restart" ? "restart" : h.switch_mode === "new_pane" ? "new_pane" : "keep";
-          const failed = way === "keep" ? await activateAccount(best.id) : way === "restart" ? await restartOn(best) : await handOff(best, { checklistFile: h.checklist_file });
+          const failed = way === "keep" ? await keepRunningOn(best, from) : way === "restart" ? await restartOn(best) : await handOff(best, { checklistFile: h.checklist_file });
           notify(failed ? { title: "orcha could not switch accounts", body: failed, level: "error" } : { title: `${label} is almost empty: moved to ${best.label ?? best.id}`, level: "success", timeout: 8000 });
         }
         return;

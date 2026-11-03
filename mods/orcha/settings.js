@@ -1141,7 +1141,8 @@ export default class Settings {
         .gap(8)
         .child(this.button(t, "acc-refresh", "Refresh fuel", (_e, cx) =>
           cx.spawn(async (cx) => {
-            await refreshFuel();
+            await refreshFuel(true);
+            setShared("orcha.fuelRev", Date.now());
             this.loadAccounts(cx);
           }),
         )),

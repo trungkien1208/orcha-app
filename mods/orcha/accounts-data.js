@@ -44,9 +44,43 @@ export async function activateAccount(id) {
   return r.code === 0 ? null : lastLine(r, "limits.py failed");
 }
 
-/** Reads every account's fuel again (network), into the cache. */
-export async function refreshFuel() {
-  await exec("python3", ["-I", LIMITS(), "json"]);
+/** Reads the accounts' fuel into the cache (network). Accounts read in the
+ *  last two minutes are skipped, unless `fresh` (someone asked for it). */
+export async function refreshFuel(fresh = false) {
+  await exec("python3", ["-I", LIMITS(), "json", ...(fresh ? ["fresh"] : [])]);
+}
+
+// The config folder a terminal's Claude reads (CLAUDE_CONFIG_DIR, from its
+// process), or "-" for the default one, as limits.py takes it.
+async function configFolder(terminal) {
+  const got = await hc(["get", "--json", terminal]);
+  let pid = null;
+  try {
+    pid = JSON.parse(got.stdout).foreground?.pid ?? null;
+  } catch {
+    pid = null;
+  }
+  if (!pid) return "-";
+  const r = await exec("ps", ["-E", "-ww", "-o", "command=", "-p", String(pid)]);
+  return /(?:^|\s)CLAUDE_CONFIG_DIR=(\S+)/.exec(r.stdout)?.[1] ?? "-";
+}
+
+/** The account a terminal's Claude runs on, or null. */
+export async function claudeAccountOf(terminal) {
+  const r = await exec("python3", ["-I", LIMITS(), "whoami", await configFolder(terminal)]);
+  return r.code === 0 ? r.stdout.trim() || null : null;
+}
+
+/** The chat keeps running on `account`'s sign-in, no restart: Claude reads it
+ *  again within half a minute. A chat of the default folder moves with every
+ *  other one there; one in an account's folder moves alone. Null, or why not. */
+export async function keepRunningOn(account, from) {
+  const folder = from?.terminal ? await configFolder(from.terminal) : "-";
+  const r = await exec("python3", ["-I", LIMITS(), "switch-dir", account.id, folder]);
+  if (r.code === 0) return null;
+  // An older orcha has no switch-dir, but can still move the default folder.
+  if (folder === "-") return activateAccount(account.id);
+  return lastLine(r, "limits.py failed");
 }
 
 /** "Personal Mac" → "personal-mac" (orcha's account_slug). */
@@ -123,9 +157,6 @@ export function writeHandoff(key, value) {
 // old one, reads them, sums up and waits for a go.
 
 const AGENT_RUN = { claude: "claude", codex: "codex", cursor: "cursor-agent" };
-
-/** The kinds a chat can be handed to. */
-export const canHandOffTo = (kind) => kind in AGENT_RUN;
 
 /** The agent pane people are looking at, or null. */
 export function focusedAgent() {
@@ -214,12 +245,15 @@ export async function handOff(account, { checklistFile = HANDOFF_DEFAULTS.checkl
 
 /** Same pane, same chat, the agent restarted on `account` (orcha's
  *  SwitchMode::Restart): stops Claude and continues the folder's latest
- *  conversation on the account. */
+ *  conversation on the account. It needs the account in a folder of its own
+ *  (restart_folder in actions.rs): its sign-in may be set aside. */
 export async function restartOn(account) {
   const from = focusedAgent();
   if (!from?.terminal) return "Click into an agent first.";
   if (account.kind !== "claude" || !from.program?.key?.includes("claude")) return "Restarting on another account works from Claude to Claude.";
   const dir = claudeDir(account);
+  const owner = await exec("python3", ["-I", LIMITS(), "whoami", dir ?? "-"]);
+  if (owner.stdout.trim() !== account.id) return `${account.label ?? account.id}'s sign-in is set aside, in no folder: keep the chat running on it instead.`;
   if (dir) await exec("python3", ["-I", LIMITS(), "link", account.id]);
   const env = dir ? `env CLAUDE_CONFIG_DIR=${dir}` : "env -u CLAUDE_CONFIG_DIR";
   // Ctrl+C twice leaves Claude Code; then the shell continues the chat.

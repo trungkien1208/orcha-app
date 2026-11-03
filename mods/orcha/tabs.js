@@ -6,10 +6,14 @@
 // icon, its name, a state dot (yellow running, red needs you, green done).
 // A shell's tab is teal, like its title bar. More than six fold into `+N`;
 // the green + NEW tab opens a new one.
+//
+// The line around the pane with the keyboard takes that pane's color too.
+// Herdr has one such color per layout, so it is set again when focus moves to
+// a pane of another color.
 
 import { div } from "gpui-kit";
 import { h_flex } from "gpui-base";
-import { spaces, panes, agents, run, openOverlay } from "herdr";
+import { spaces, panes, agents, run, openOverlay, focused, layout } from "herdr";
 import { tokens, icon, agentTitle, programIcon, stateColor, agentColor } from "./ui.js";
 
 const SHOWN = 6;
@@ -25,6 +29,32 @@ export default class Tabs {
     const program = lead?.program?.name?.toLowerCase();
     if (tab.named && tab.name.toLowerCase() !== program) return tab.name;
     return agentTitle(byPane.get(lead?.pane), lead) || lead?.cwd?.split("/").pop() || lead?.program?.name || tab.name;
+  }
+
+  // The focus line in `color`: the layout's tab block, changed in a copy.
+  setFocusColor(color) {
+    const tree = JSON.parse(JSON.stringify(layout()));
+    const set = (node) => {
+      const pane = node.content?.tab === "active" ? node.content.pane : null;
+      if (pane) {
+        const changed = pane.focus?.color !== color;
+        pane.focus = { ...pane.focus, color };
+        return changed;
+      }
+      return (node.children ?? []).reduce((any, child) => set(child) || any, false);
+    };
+    if (set(tree)) run("layout.set", { layout: tree });
+  }
+
+  followFocus(k, allPanes, cx) {
+    const id = focused()?.pane;
+    const pane = id ? allPanes.find((p) => p.pane === id) : null;
+    if (!pane) return;
+    const color = pane.program?.agent ? agentColor(k, pane.program) : k.teal;
+    if (color === this.focusColor) return;
+    this.focusColor = color;
+    // Commands wait until the frame is drawn.
+    cx.timer.after(0, () => this.setFocusColor(color));
   }
 
   // The tabs' shape: one height, round at the top, flat on the panes.
@@ -83,11 +113,12 @@ export default class Tabs {
     return mine.find((p) => p.program?.agent) ?? mine[0] ?? null;
   }
 
-  render(_cx) {
+  render(cx) {
     const k = tokens();
     const space = spaces().find((s) => s.active);
     const tabs = space?.tabs ?? [];
     const allPanes = panes();
+    this.followFocus(k, allPanes, cx);
     const byPane = new Map(agents().map((a) => [a.pane, a]));
     const open = tabs.findIndex((t) => t.active);
     // Keep the open tab among the shown ones.

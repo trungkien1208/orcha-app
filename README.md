@@ -70,7 +70,8 @@ That's it. You should see the projects on the left, PROCESS at the bottom left a
   | `⌘L` | links and file paths the pane printed, newest first |
 
   `Tab` switches between them. `⌘P` stays Herdr's terminal picker.
-- **Open what agents print.** `⌘L` lists the web addresses and file paths in the pane, including links Claude shows only by their name (an artifact, a doc), read from its conversation; `↵` opens one: a page in your browser, a folder in Finder, a picture, PDF or document in its app, code in the viewer (at its line, for `file.rs:42`). `⌘C` or a row's copy button copies it. Or select a path, right-click and pick **Open** or **Copy**. A path that isn't where it says is looked for in the project. To open a file type in your editor instead, set it in orcha's `config.toml`:
+- **Open what agents print.** `⌘L` lists the web addresses and file paths in the pane, including links Claude shows only by their name (an artifact, a doc), read from its conversation; `↵` opens one: a page in your browser, a folder in Finder, a picture, PDF or document in its app, code in the viewer (at its line, for `file.rs:42`). `⌘C` or a row's copy button copies it.
+- **Right-click a link** in a terminal for **Open link** and **Copy link**, even a link Claude shows only by its name. It works on a pane alone in its tab; with split panes, select the link first, then right-click. A path that isn't where it says is looked for in the project. To open a file type in your editor instead, set it in orcha's `config.toml`:
 
   ```toml
   [orcha.open_with]
@@ -101,10 +102,13 @@ The train runs between the stop it reached and the next one, puffing smoke, and 
 
 orcha keeps several accounts (say, a personal and a work Claude plan) and shows how much fuel each one has left. Open **ACCOUNTS** from the header or by clicking FUEL.
 
-- **USE** makes that Claude account the one every Claude chat uses. Running chats move to it within half a minute, no restart.
-- **HAND OFF** moves the chat you're looking at to that account, or to another agent (Codex, Cursor). The new agent opens beside the old one with short notes (what the work is, git state, where the old chat is), sums up where things stand and waits for your go. Claude to Claude asks how: keep running, restart, or a new pane.
+- **SWITCH** moves the chat in front of you to that account. Claude to Claude asks how (or do what Settings › Hand-off says):
+  - **Keep running**: same chat, no restart. Claude picks up the new sign-in within half a minute. Chats started in the same folder move with it.
+  - **Restart**: same chat, Claude starts again on the account.
+  - **New pane**: a new agent opens beside the old one with short notes (what the work is, git state, where the old chat is), sums up and waits for your go.
+  - Switching to another kind of agent (Codex, Cursor) always takes a new pane. With no agent in front, Claude chats move to the account.
 - **ADD ACCOUNT** (or `a`): give it a name, then sign in in the pane that opens. Its chats, settings and skills are shared with your other accounts.
-- **SIGN IN** shows on an account orcha can't read fuel for yet.
+- **SIGN IN** shows on an account orcha can't read fuel for, with the reason. After signing in, FUEL reads the new sign-in by itself; `r` asks every account right now.
 
 **Settings › Hand-off** puts three marks on the fuel bar of the account in use:
 
@@ -136,7 +140,7 @@ Then switch Herdr back to another layout (`⌘⇧P` → `layout.switch`). The in
 - **A panel shows an error or stays blank.** Run `herdr-app check ~/.config/herdr-app/mods/orcha`. It tells you what broke. Then [open an issue](https://github.com/trungkien1208/orcha-app/issues) with that output.
 - **Two Claude chats show the same model and context.** Known: those numbers come from the newest Claude chat in the agent's folder, so chats in the same folder share them.
 - **Agents are gone after a reboot.** Herdr opens fresh shells after a restart; it doesn't bring agents back (yet).
-- **Switched accounts but a chat still uses the old one.** USE moves Claude chats that use the main sign-in; a chat started on a specific account stays there. Use HAND OFF to move it.
+- **Signed in, but FUEL still says the sign-in expired.** Update the terminal orcha: older versions read the old sign-in. Then sign in once more.
 
 <details>
 <summary><b>Where the installer writes</b></summary>
