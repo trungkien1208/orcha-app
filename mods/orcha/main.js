@@ -21,8 +21,9 @@ import Files from "./files.js";
 import Viewer from "./viewer.js";
 import Finder from "./finder.js";
 import New from "./new.js";
+import Import from "./import.js";
 
-const PARTS = { header: Header, left: Left, tabs: Tabs, pane: Pane, panel: Panel, status: Status, accounts: Accounts, menu: Menu, termmenu: TerminalMenu, icon: Icon, settings: Settings, sidetabs: SideTabs, files: Files, viewer: Viewer, finder: Finder, new: New, spacer: class { render() { return div(); } } };
+const PARTS = { header: Header, left: Left, tabs: Tabs, pane: Pane, panel: Panel, status: Status, accounts: Accounts, menu: Menu, termmenu: TerminalMenu, icon: Icon, settings: Settings, sidetabs: SideTabs, files: Files, viewer: Viewer, finder: Finder, new: New, import: Import, spacer: class { render() { return div(); } } };
 
 export default class Orcha extends View {
   init(_props, cx) {

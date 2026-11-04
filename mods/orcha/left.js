@@ -862,20 +862,21 @@ export default class Left {
   }
 
   // PROCESS (SPEC §3.1): a fixed card at the foot of the sidebar. Each running
-  // agent is a train on its own line, labelled by its model.
-  process(k, allPanes) {
+  // agent is a train on its own line, labelled by its model, with its project
+  // and what it works on under it.
+  process(k, allPanes, list, byPane) {
     if (shared("orcha.process") === "off") return null;
     const running = allPanes.filter((p) => p.program?.agent && p.status === "working");
     const stations = this.facts.stations ?? {};
+    const projectOf = new Map();
+    if (running.length) for (const space of list) for (const p of this.index.get(space.id)?.agents ?? []) projectOf.set(p.pane, space.name);
     const lane = (pane) => {
       const color = agentColor(k, pane.program);
       const at = Math.max(0, STATIONS.indexOf(stations[pane.terminal] ?? "THINK"));
-      return h_flex()
-        .id(`train-${pane.pane}`)
+      const about = [projectOf.get(pane.pane), agentTitle(byPane.get(pane.pane), pane)].filter(Boolean).join(" · ");
+      const line = h_flex()
         .gap(10)
         .items_center()
-        .cursor_pointer()
-        .on_click(() => run("pane.focus", { pane: pane.pane }))
         .child(
           h_flex()
             .w(96)
@@ -892,6 +893,13 @@ export default class Left {
             .child(div().flex_1().truncate().text_size(10.5).font_black().text_color(k.chipText).child(modelOf(pane, this.facts).toUpperCase())),
         )
         .child(this.metro(k, at, color, pane.pane));
+      return v_flex()
+        .id(`train-${pane.pane}`)
+        .gap(3)
+        .cursor_pointer()
+        .on_click(() => run("pane.focus", { pane: pane.pane }))
+        .child(line)
+        .when(Boolean(about), (el) => el.child(div().pl(2).truncate().text_size(10.5).text_color(k.muted).child(about)));
     };
     // Station names under the line: first at its start, last at its end.
     const labels = h_flex()
@@ -902,7 +910,7 @@ export default class Left {
       .text_color(k.dim)
       .children(STATIONS.map((s) => div().child(s)));
     const body = running.length
-      ? v_flex().gap(8).children(running.map(lane)).child(labels)
+      ? v_flex().gap(10).children(running.map(lane)).child(labels)
       : v_flex()
           .gap(6)
           .child(h_flex().gap(10).items_center().child(h_flex().w(96).flex_none().gap(5).items_center().child(icon("train-front", 15, k.dim)).child(div().text_size(10.5).font_black().text_color(k.dim).child("DEPOT"))).child(this.metro(k, -1, k.dim)))
@@ -946,7 +954,7 @@ export default class Left {
     const groups = groupSpaces(list, this.index, this.git);
     this.openSelected(list, groups);
     const projects = groups.map((g, gi) => (isRepo(g) ? this.repo(k, g, byPane, groups, gi) : this.project(k, g.members[0].space, byPane, groups, gi)));
-    const trains = this.process(k, allPanes);
+    const trains = this.process(k, allPanes, list, byPane);
     return v_flex()
       .id("orcha-left")
       .size_full()

@@ -1,14 +1,15 @@
 // NEW, as in the terminal orcha: from + NEW (the sidebar) and the tab strip.
 // First a shell or an installed agent in a new tab of the project in front,
 // then New project…; that opens NEW PROJECT: another folder (the system's
-// picker), a typed path, the current project's folder again, or a new
-// worktree.
+// picker), a typed path, projects from other tools (import.js), the
+// current project's folder again, or a new worktree.
 
 import { svg, image, div } from "gpui-kit";
 import { v_flex, InputState, Input } from "gpui-base";
 import { spaces, knownAgents, run, exec, pickFolder, props, closeOverlay, openOverlay, shared, setShared } from "herdr";
 import { tokens, drawMenu, expandHome, openWorktree } from "./ui.js";
 import { location } from "./files.js";
+import { openImport } from "./import.js";
 
 // The agents each machine reported last time, shown at once while
 // knownAgents() asks again. Herdr's new-menu keeps its own: read, never written.
@@ -78,6 +79,7 @@ export default class New {
     const rows = [
       { glyph: "search", label: "Another folder", hint: "BROWSE", act: () => run("orcha.new-project") },
       { glyph: "file", label: "Enter folder path", hint: "TYPE", act: () => this.startTyping() },
+      { glyph: "history", label: "Import from Cursor, Claude…", hint: "I", act: () => openImport() },
     ];
     if (space?.folder) rows.push({ glyph: "git-fork", label: `${space.name}'s folder again`, act: () => run("space.new", { folder: space.folder, machine: space.machine ?? "" }) });
     if (space) rows.push({ glyph: "git-branch", label: "New worktree…", act: () => openWorktree(space.id, "new", location().cwd) });

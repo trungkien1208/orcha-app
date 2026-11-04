@@ -98,12 +98,22 @@ export function signIn(id) {
   run("pane.split", { direction: "right", argv: ["python3", "-I", LIMITS(), "login", id] });
 }
 
-/** Adds the Claude account `name` to orcha's config.json (as orcha's
- *  add_to_config does) and opens its sign-in. Null, or why it failed. */
-export async function addAccount(name) {
+/** The agents an account can be for. Claude accounts get a name and a folder
+ *  each; Codex and Cursor sign in where their CLI keeps it, so one each. */
+export const ACCOUNT_KINDS = [
+  { kind: "claude", label: "Claude", cli: "claude" },
+  { kind: "codex", label: "Codex", cli: "codex" },
+  { kind: "cursor", label: "Cursor", cli: "cursor-agent" },
+];
+
+/** Adds an account to orcha's config.json (as orcha's add_to_config does) and
+ *  opens its sign-in: Claude account `name`, or the one Codex or Cursor
+ *  account. Null, or why it failed. */
+export async function addAccount(name, kind = "claude") {
+  const one = kind !== "claude" ? ACCOUNT_KINDS.find((k) => k.kind === kind) : null;
   const slug = accountSlug(name);
-  if (!slug) return "Give it a name, like personal or work.";
-  const id = `claude-${slug}`;
+  if (!one && !slug) return "Give it a name, like personal or work.";
+  const id = one ? kind : `claude-${slug}`;
   const before = await readTextFile(CONFIG());
   let config;
   try {
@@ -114,8 +124,13 @@ export async function addAccount(name) {
   if (!config || typeof config !== "object" || Array.isArray(config)) return "orcha's config.json is not an object.";
   const list = (config.accounts ??= []);
   if (!Array.isArray(list)) return "accounts in config.json is not a list.";
-  if (list.some((a) => a?.id === id || a?.id?.replace(/^claude-/, "") === slug)) return `${id} is already an account.`;
-  list.push({ id, kind: "claude", label: `Claude · ${slug}`, email: "", dir: `~/.ai-accounts/claude/${slug}` });
+  if (one) {
+    if (list.some((a) => a?.kind === kind)) return `${one.label} is already an account: one per computer.`;
+    list.push({ id, kind, label: one.label, email: "", dir: null });
+  } else {
+    if (list.some((a) => a?.id === id || a?.id?.replace(/^claude-/, "") === slug)) return `${id} is already an account.`;
+    list.push({ id, kind: "claude", label: `Claude · ${slug}`, email: "", dir: `~/.ai-accounts/claude/${slug}` });
+  }
   try {
     await writeTextFile(CONFIG(), `${JSON.stringify(config, null, 2)}\n`, before);
   } catch {

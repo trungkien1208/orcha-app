@@ -6,9 +6,12 @@
 // in the browser, or here for a file next to it.
 // Opened from a link with a line (`file.rs:42`), that line and the two
 // around it are listed on top, as Herdr's editor can't scroll to a line.
+// ⌘F (or the search button) opens a find bar: the file then shows as plain
+// lines (a list orcha can scroll), every match in yellow, and ↵ / ⇧↵ go to
+// the next and previous one.
 
 import { div } from "gpui-kit";
-import { v_flex, h_flex, Editor, EditorState, TextView } from "gpui-base";
+import { v_flex, h_flex, Editor, EditorState, TextView, InputState, Input, v_virtual_list, VirtualListScrollHandle, Scrollbar } from "gpui-base";
 import { readTextFile, shared, setShared, settings, panes, focused, exec } from "herdr";
 
 import { tokens, icon, closePane } from "./ui.js";
@@ -16,7 +19,21 @@ import { tokens, icon, closePane } from "./ui.js";
 const LANG = { ts: "js", tsx: "js", mts: "js", cts: "js", jsx: "js", mjs: "js", toml: "yaml", jsonc: "json", svelte: "html", vue: "html" };
 const MAX = 400000;
 const MARKDOWN = /\.(md|markdown|mdx)$/i;
-const HITS = 40;
+const ROW = 19;
+const FIND = "orcha_viewer_find";
+
+// Herdr's editor takes ⌘F for a search of its own that does nothing here,
+// before any key handler hears it. A binding in the editor's own key context,
+// made later, comes first: the viewer answers it, anywhere else it falls
+// through to what ⌘F did before.
+let bound = false;
+const bindFind = (cx) => {
+  if (bound) return;
+  bound = true;
+  cx.bind_keys([{ keystroke: "cmd-f", action: FIND, context: "Input" }]);
+};
+
+const escapeRe = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 // Shows another file: the same shared value FILES and FIND write.
 function setView(root, path, on) {
@@ -31,7 +48,71 @@ export default class Viewer {
     this.hits = [];
     this.markdown = null; // a Markdown file's text, shown as a page
     this.source = false; // ...or as text
+    this.lines = [];
+    this.finding = false;
+    this.matches = []; // indexes of the lines holding the text
+    this.cur = 0; // the match shown
+    this.lower = []; // the lines in lower case, for searching
+    this.scroll = VirtualListScrollHandle.new();
+    bindFind(cx);
+    this.findSeq = shared("orcha.viewerFind")?.seq ?? null;
+    this.find = InputState.new({ placeholder: "Find in this file" });
+    this.find.on("change", (_e, cx) => {
+      this.search(this.find.value());
+      cx.notify();
+    });
+    this.find.on("submit", (e, cx) => {
+      this.step(e.shift ? -1 : 1);
+      cx.notify();
+    });
     this.load(cx);
+  }
+
+  // The lines holding `query`, any case; shows the first one.
+  search(query) {
+    const q = (query ?? "").toLowerCase();
+    this.query = q;
+    this.matches = [];
+    this.cur = 0;
+    if (!q) return;
+    this.lower.forEach((line, i) => {
+      if (line.includes(q)) this.matches.push(i);
+    });
+    this.show();
+  }
+
+  // The next (1) or previous (-1) match, round the end.
+  step(by) {
+    const n = this.matches.length;
+    if (!n) return;
+    this.cur = (this.cur + by + n) % n;
+    this.show();
+  }
+
+  show() {
+    if (this.matches.length) this.scroll.scroll_to_item(this.matches[this.cur], "center");
+  }
+
+  openFind(query) {
+    this.finding = true;
+    if (query != null) this.find.set_value(query);
+    this.search(this.find.value());
+    this.find.focus();
+  }
+
+  closeFind() {
+    this.finding = false;
+    this.query = "";
+    this.matches = [];
+  }
+
+  // ⌘F in this viewer (header.js): the newest ask for this pane.
+  watchFind() {
+    const ask = shared("orcha.viewerFind");
+    if (!ask || ask.seq === this.findSeq) return;
+    this.findSeq = ask.seq;
+    const me = panes().find((p) => p.mod === "orcha" && p.tab === focused()?.tab);
+    if (me && me.pane === ask.pane) this.openFind();
   }
 
   load(cx) {
@@ -43,6 +124,8 @@ export default class Viewer {
     this.code = null;
     this.error = null;
     this.hits = [];
+    this.lines = [];
+    this.lower = [];
     this.markdown = null;
     this.source = Boolean(view.query || view.line);
     cx.spawn(async (cx) => {
@@ -64,12 +147,11 @@ export default class Viewer {
             syntax: { keyword: k.ansi5, string: k.ansi2, comment: k.dim, function: k.ansi4, type: k.ansi3, number: k.ansi1, constant: k.ansi6 },
           });
           const lines = text.split("\n");
-          if (view.query) {
-            const q = view.query.toLowerCase();
-            for (let i = 0; i < lines.length && this.hits.length < HITS; i += 1) {
-              if (lines[i].toLowerCase().includes(q)) this.hits.push({ line: i + 1, text: lines[i].trim().slice(0, 200) });
-            }
-          } else if (view.line) {
+          this.lines = lines;
+          this.lower = lines.map((l) => l.toLowerCase());
+          if (view.query) this.openFind(view.query);
+          else if (this.finding) this.search(this.find.value());
+          else if (view.line) {
             for (let n = Math.max(1, view.line - 2); n <= Math.min(lines.length, view.line + 2); n += 1) {
               this.hits.push({ line: n, text: lines[n - 1].slice(0, 200), here: n === view.line });
             }
@@ -101,6 +183,68 @@ export default class Viewer {
     setView(root, parts.join("/"), this.view.on);
   }
 
+  stepButton(k, glyph, by, tip) {
+    return div()
+      .id(`viewer-find-${glyph}`)
+      .flex_none()
+      .p(2)
+      .rounded(4)
+      .border(2)
+      .border_color(k.line)
+      .cursor_pointer()
+      .hover((s) => s.bg(k.hover))
+      .tooltip(tip)
+      .on_click((_e, cx) => {
+        this.step(by);
+        cx.notify();
+      })
+      .child(icon(`arrow-${glyph}`, 11, k.ink));
+  }
+
+  // The file as plain lines while finding: Herdr's editor can't scroll to a
+  // line, this list can. Every match in yellow, the shown one's line marked.
+  findView(k) {
+    // On the shown text itself: lower case can change a string's length.
+    const re = new RegExp(escapeRe(this.query), "gi");
+    const shown = this.matches[this.cur];
+    const row = (i) => {
+      const text = this.lines[i].replaceAll("\t", "    ").slice(0, 2000);
+      const parts = [];
+      let from = 0;
+      for (const m of text.matchAll(re)) {
+        if (m.index > from) parts.push(div().flex_none().child(text.slice(from, m.index)));
+        parts.push(div().flex_none().rounded(2).bg(k.yellow).text_color(k.chipText).child(m[0]));
+        from = m.index + m[0].length;
+      }
+      if (from < text.length) parts.push(div().flex_none().child(text.slice(from)));
+      return h_flex()
+        .h(ROW)
+        .gap(12)
+        .items_center()
+        .whitespace_nowrap()
+        .overflow_hidden()
+        .when(i === shown, (el) => el.bg(k.yellow + "33"))
+        .child(div().w(44).flex_none().text_right().text_color(i === shown ? k.ink : k.dim).child(String(i + 1)))
+        .child(h_flex().flex_1().min_w(0).overflow_hidden().text_color(k.foreground).children(parts));
+    };
+    return div()
+      .relative()
+      .flex_1()
+      .min_h(0)
+      .font_family(settings().font_family)
+      .text_size(12.5)
+      .child(
+        v_virtual_list("viewer-lines", this.lines.length, ROW, (i) => String(i), (range) => {
+          const out = [];
+          for (let i = range.start; i < range.end; i += 1) out.push(row(i));
+          return out;
+        })
+          .track_scroll(this.scroll)
+          .size_full(),
+      )
+      .child(Scrollbar.vertical("viewer-lines").absolute().inset_0());
+  }
+
   close() {
     const tab = focused()?.tab;
     const me = panes().find((p) => p.mod === "orcha" && p.tab === tab);
@@ -109,6 +253,7 @@ export default class Viewer {
 
   render(cx) {
     this.load(cx);
+    this.watchFind();
     const k = tokens();
     const path = this.view?.path ?? "";
     const slash = path.lastIndexOf("/");
@@ -152,6 +297,24 @@ export default class Viewer {
       )
       .child(
         div()
+          .id("viewer-find")
+          .p(3)
+          .rounded(4)
+          .border(2)
+          .border_color(k.line)
+          .bg(this.finding ? k.yellow : "#00000000")
+          .cursor_pointer()
+          .hover((s) => s.bg(k.hover))
+          .tooltip("Find in this file  ⌘F")
+          .on_click((_e, cx) => {
+            if (this.finding) this.closeFind();
+            else this.openFind();
+            cx.notify();
+          })
+          .child(icon("search", 12, k.ink)),
+      )
+      .child(
+        div()
           .id("viewer-close")
           .p(3)
           .rounded(4)
@@ -163,7 +326,7 @@ export default class Viewer {
           .on_click(() => this.close())
           .child(icon("x", 12, k.ink)),
       );
-    const hits = this.hits.length
+    const hits = this.hits.length && !this.finding
       ? v_flex()
           .id("viewer-hits")
           .flex_none()
@@ -175,7 +338,7 @@ export default class Viewer {
           .bg(k.yellow + "22")
           .border_b(2)
           .border_color(k.line)
-          .child(div().text_size(10.5).font_black().text_color(k.muted).child(this.view.query ? `“${this.view.query}” · ${this.hits.length === HITS ? `${HITS}+` : this.hits.length} line${this.hits.length === 1 ? "" : "s"}` : `line ${this.view.line}`))
+          .child(div().text_size(10.5).font_black().text_color(k.muted).child(`line ${this.view.line}`))
           .children(
             this.hits.map((h) =>
               h_flex()
@@ -186,16 +349,55 @@ export default class Viewer {
             ),
           )
       : null;
+    // What is typed, the count, and how to close.
+    const findBar = this.finding
+      ? h_flex()
+          .flex_none()
+          .h(34)
+          .px(10)
+          .gap(8)
+          .items_center()
+          .bg(k.card)
+          .border_b(2)
+          .border_color(k.line)
+          .on_key_down((e, cx) => {
+            if (e.key !== "escape") return;
+            this.closeFind();
+            cx.stop_propagation();
+            cx.notify();
+          })
+          .child(icon("search", 13, k.dim))
+          .child(Input.new(this.find).flex_1().min_w(0).h(24).px(6).rounded(4).border(2).border_color(k.line).bg(k.paper).text_size(12.5).text_color(k.ink))
+          .child(
+            div()
+              .flex_none()
+              .text_size(11)
+              .font_black()
+              .text_color(this.query && !this.matches.length ? k.red : k.muted)
+              .child(!this.query ? "esc close" : this.matches.length ? `${this.cur + 1}/${this.matches.length}` : "not found"),
+          )
+          .child(this.stepButton(k, "up", -1, "Previous  ⇧↵"))
+          .child(this.stepButton(k, "down", 1, "Next  ↵"))
+      : null;
     return v_flex()
       .id("orcha-viewer")
       .size_full()
       .min_h(0)
       .bg(k.background)
       .text_size(12.5)
+      // ⌘F from inside the code (bindFind); from elsewhere it comes
+      // through header.js.
+      .on_action(FIND, (_e, cx) => {
+        this.openFind();
+        cx.notify();
+      })
       .child(head)
+      .when(Boolean(findBar), (el) => el.child(findBar))
       .when(Boolean(hits), (el) => el.child(hits))
       .child(
-        this.markdown != null && !this.source
+        this.finding && this.query && this.lines.length
+          ? this.findView(k)
+          : this.markdown != null && !this.source
           ? div()
               .id("viewer-page")
               .flex_1()

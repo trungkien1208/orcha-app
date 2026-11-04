@@ -7,7 +7,25 @@ import { v_flex, h_flex, Scrollbar, InputState, Input } from "gpui-base";
 import { hc, run, theme, themes, fonts, updates, telemetry, settings, layouts, shared, setShared, appHome, readTextFile, writeTextFile, playSound, props, closeOverlay, window, spaces, exec, home, layout, notify } from "herdr";
 import { RULES, SKILLS } from "./catalog.js";
 import { fuelGauge, tokens, projectTile } from "./ui.js";
-import { readAccounts, activateAccount, refreshFuel, addAccount, signIn, readHandoff, writeHandoff, HANDOFF_DEFAULTS } from "./accounts-data.js";
+import { readAccounts, activateAccount, refreshFuel, addAccount, signIn, ACCOUNT_KINDS, readHandoff, writeHandoff, HANDOFF_DEFAULTS } from "./accounts-data.js";
+
+// Copies skill folders from a GitHub repo's tarball: no Node needed. A skill
+// is the folder whose SKILL.md says `name: <skill>`, else a folder so named.
+// Args: repo, destination, skill names.
+const FROM_GITHUB = `src=$1 dest=$2; shift 2
+tmp=$(mktemp -d) || exit 1
+trap 'rm -rf "$tmp"' EXIT
+curl -fsSL "https://codeload.github.com/$src/tar.gz/HEAD" | tar -xz -C "$tmp" || { echo "could not download $src from GitHub" >&2; exit 1; }
+mkdir -p "$dest" || exit 1
+for name in "$@"; do
+  f=$(grep -rlE --include=SKILL.md "^name: *[\\"']?\${name}[\\"']? *\\$" "$tmp" | head -1)
+  [[ -z $f ]] && f=$(find "$tmp" -path "*/$name/SKILL.md" | head -1)
+  [[ -z $f ]] && { echo "$name is not in $src" >&2; exit 1; }
+  rm -rf "$dest/$name" && cp -R "\${f:h}" "$dest/$name" || exit 1
+done`;
+
+// `npx skills add` arguments: in the project, or for the user (-g).
+const skillArgs = (skill, global) => ["-y", "skills", "add", skill.source, "--skill", ...skill.skills, "-a", "claude-code", "-y", ...(global ? ["-g"] : [])];
 
 const I = (name) => `frame/settings/${name}.svg`;
 
@@ -96,7 +114,7 @@ export default class Settings {
     if (pending && pending.until > Date.now()) setShared("orcha.openSection", null);
     const asked = props()?.section ?? (pending && pending.until > Date.now() ? pending.id : null);
     this.section = SECTIONS.some((s) => s.id === asked) ? asked : "projects";
-    this.orcha = { project: null, info: null, busy: {}, accounts: null, active: null, icons: {} };
+    this.orcha = { project: null, info: null, busy: {}, failed: {}, addKind: "claude", accounts: null, active: null, icons: {} };
     cx.spawn(async (cx) => {
       try {
         this.orcha.icons = JSON.parse((await readTextFile(`${home()}/.config/orcha/project-icons.json`)) ?? "{}") ?? {};
@@ -378,8 +396,8 @@ export default class Settings {
       );
   }
 
-  appearancePicker(t, cx) {
-    const now = this.person.appearance ?? null;
+  // One of a few: [value, label] pairs side by side, `now` raised.
+  segmented(t, id, options, now, onPick) {
     return h_flex()
       .p(2)
       .gap(2)
@@ -388,9 +406,9 @@ export default class Settings {
       .border_color(t.border)
       .bg(t.background)
       .children(
-        APPEARANCES.map(([value, label]) =>
+        options.map(([value, label]) =>
           div()
-            .id(`st-ap-${label}`)
+            .id(`${id}-${label}`)
             .px(12)
             .py(4)
             .rounded(6)
@@ -398,15 +416,19 @@ export default class Settings {
             .cursor_pointer()
             .when(now === value, (el) => el.bg(t.raised).text_color(t.foreground).border_1().border_color(t.border))
             .when(now !== value, (el) => el.text_color(t.muted).hover((s) => s.text_color(t.foreground)))
-            .on_click((_e, cx) =>
-              this.change((p) => {
-                if (value === null) delete p.appearance;
-                else p.appearance = value;
-              }, cx),
-            )
+            .on_click((_e, cx) => onPick(value, cx))
             .child(label),
         ),
       );
+  }
+
+  appearancePicker(t, cx) {
+    return this.segmented(t, "st-ap", APPEARANCES, this.person.appearance ?? null, (value, cx) =>
+      this.change((p) => {
+        if (value === null) delete p.appearance;
+        else p.appearance = value;
+      }, cx),
+    );
   }
 
   themePicker(t, light) {
@@ -957,52 +979,67 @@ export default class Settings {
   }
 
   // `npx skills add` in the project, or for the user (-g): orcha_rules.rs install_skill.
+  // Without Node (or when npx fails) the skill folders come straight from GitHub.
   installSkill(skill, global, cx) {
     const info = this.orcha.info;
     if (!info || this.orcha.busy[skill.name]) return;
     this.orcha.busy[skill.name] = global ? "for you" : "here";
     cx.notify();
     cx.spawn(async (cx) => {
-      const args = ["-y", "skills", "add", skill.source, "--skill", ...skill.skills, "-a", "claude-code", "-y", ...(global ? ["-g"] : [])];
-      // An app opened from the Dock has no shell PATH: npx comes from a login shell.
-      const r = await exec("/bin/zsh", ["-lc", 'exec npx "$@"', "npx", ...args], { cwd: info.folder });
+      const args = skillArgs(skill, global);
+      // An app opened from the Dock has no shell PATH, and nvm, fnm and the
+      // like set it up in .zshrc, which only an interactive shell reads.
+      // Its input is /dev/null, so nothing in .zshrc can wait on a question.
+      let r = await exec("/bin/sh", ["-c", `exec /bin/zsh -lic 'exec npx "$@"' npx "$@" </dev/null`, "sh", ...args], { cwd: info.folder });
+      if (r.code !== 0) {
+        const dest = global ? `${home()}/.claude/skills` : `${info.folder}/.claude/skills`;
+        r = await exec("/bin/zsh", ["-c", FROM_GITHUB, "zsh", skill.source, dest, ...skill.skills], { cwd: info.folder });
+      }
       delete this.orcha.busy[skill.name];
-      if (r.code === 0) notify({ title: `${skill.title} installed`, level: "success", timeout: 4000 });
-      else notify({ title: `${skill.title} was not installed`, body: (r.stderr || r.stdout || "is Node.js installed?").trim().split("\n").pop(), level: "error" });
+      if (r.code === 0) {
+        delete this.orcha.failed[`${global ? "" : info.folder}|${skill.name}`];
+        notify({ title: `${skill.title} installed`, level: "success", timeout: 4000 });
+      } else {
+        // The row then offers the command, to run by hand in a terminal.
+        const cd = global ? "" : `cd '${info.folder.replaceAll("'", "'\\''")}' && `;
+        this.orcha.failed[`${global ? "" : info.folder}|${skill.name}`] = `${cd}npx ${skillArgs(skill, global).join(" ")}`;
+        notify({ title: `${skill.title} was not installed`, body: (r.stderr || r.stdout || "no internet?").trim().split("\n").pop(), level: "error" });
+      }
       this.loadProject(cx);
     });
   }
 
-  projects(t, cx) {
+  // Projects as vertical tabs beside the page: their own scroll, so the list
+  // stays put while the rules scroll.
+  projectTabs(t, cx) {
     const space = this.projectSpace();
-    const info = this.orcha.info;
-    if (space && info?.space !== space.id) this.loadProject(cx);
-    // One tab per project, its icon and name; the open one joins the page.
     const k = tokens();
-    const picker = h_flex()
+    return v_flex()
       .id("op-tabs")
-      .w_full()
+      .w(200)
+      .flex_none()
+      .h_full()
       .gap(4)
-      .items_end()
-      .overflow_x_scrollbar()
-      .border_b(2)
-      .border_color(k.line)
+      .px(10)
+      .py(22)
+      .overflow_y_scroll()
+      .border_r(1)
+      .border_color(t.border)
+      .child(div().px(4).child(this.heading(t, "Project")))
       .children(
         spaces().map((s) => {
           const on = s.id === space?.id;
           return h_flex()
             .id(`op-${s.id}`)
-            .flex_none()
-            .h(on ? 34 : 30)
-            .pl(6)
-            .pr(10)
-            .gap(7)
+            .w_full()
+            .h(34)
+            .px(6)
+            .gap(8)
             .items_center()
-            .rounded_t(7)
+            .rounded(7)
             .border_2()
-            .border_b_0()
             .border_color(on ? k.line : "#00000000")
-            .bg(on ? k.yellow : k.card)
+            .bg(on ? k.yellow : "#00000000")
             .cursor_pointer()
             .text_size(12.5)
             .font_black()
@@ -1016,14 +1053,21 @@ export default class Settings {
               cx.notify();
             })
             .child(projectTile(k, s.name, this.orcha.icons[s.folder], 20))
-            .child(div().max_w(160).truncate().child(s.name));
+            .child(div().flex_1().min_w(0).truncate().child(s.name));
         }),
       );
-    const out = v_flex().w_full().child(this.heading(t, "Project")).child(picker);
-    if (!space) return out.child(div().pt(12).text_color(t.dim).child("Open a project first."));
+  }
+
+  projects(t, cx) {
+    const space = this.projectSpace();
+    const info = this.orcha.info;
+    if (space && info?.space !== space.id) this.loadProject(cx);
+    const out = v_flex().w_full();
+    if (!space) return out.child(div().text_color(t.dim).child("Open a project first."));
+    out.child(div().text_size(16).font_semibold().text_color(t.foreground).child(space.name));
     if (!info) return out.child(div().pt(12).text_color(t.dim).child("Reading the project…"));
     const fileName = info.file.path.split("/").pop();
-    out.child(div().pt(8).pb(4).text_size(12.5).text_color(t.dim).child(`Rules go in ${fileName}, as one block orcha keeps; what your team wrote around it stays as it is.`));
+    out.child(div().pt(4).pb(4).text_size(12.5).text_color(t.dim).child(`Rules go in ${fileName}, as one block orcha keeps; what your team wrote around it stays as it is.`));
     out.child(div().pt(12)).child(this.heading(t, "Working rules"));
     for (const rule of RULES) {
       const on = info.rules.includes(rule.id);
@@ -1042,6 +1086,7 @@ export default class Settings {
       }
       const where = info.installed[skill.name] ?? {};
       const busy = this.orcha.busy[skill.name];
+      const failed = this.orcha.failed[`${info.folder}|${skill.name}`] ?? this.orcha.failed[`|${skill.name}`];
       const control = busy
         ? div().text_size(12.5).text_color(t.dim).child(`installing ${busy}…`)
         : where.project
@@ -1050,9 +1095,16 @@ export default class Settings {
             ? div().text_size(12.5).text_color(t.done).child("✓ for you")
             : h_flex()
                 .gap(6)
+                .when(Boolean(failed), (el) =>
+                  el.child(this.button(t, `sk-c-${skill.name}`, "Copy command", (_e, cx) => {
+                    cx.write_to_clipboard(failed);
+                    notify({ title: "Install command copied", body: "Paste it in Terminal and press Return. It needs Node.js (nodejs.org).", level: "info", timeout: 6000 });
+                  })),
+                )
                 .child(this.button(t, `sk-p-${skill.name}`, "Add here", (_e, cx) => this.installSkill(skill, false, cx)))
                 .child(this.button(t, `sk-g-${skill.name}`, "For me", (_e, cx) => this.installSkill(skill, true, cx)));
-      out.child(this.row(t, skill.title, `${skill.summary} · ${skill.source}`, control));
+      const about = failed ? `Not installed. Copy the command and run it in Terminal, or try again. · ${skill.source}` : `${skill.summary} · ${skill.source}`;
+      out.child(this.row(t, skill.title, about, control));
     }
     return out;
   }
@@ -1118,6 +1170,12 @@ export default class Settings {
           .children(gauges),
       );
     }
+    const kind = ACCOUNT_KINDS.find((k) => k.kind === this.orcha.addKind) ?? ACCOUNT_KINDS[0];
+    const claude = kind.kind === "claude";
+    const added = !claude && (this.orcha.accounts ?? []).some((a) => a.kind === kind.kind);
+    const addButton = this.orcha.busy.add
+      ? div().text_size(12.5).text_color(t.dim).child("adding…")
+      : this.button(t, "acc-add", "Add and sign in", (_e, cx) => this.addAccount(cx));
     out.child(
       v_flex()
         .w_full()
@@ -1125,15 +1183,35 @@ export default class Settings {
         .py(12)
         .border_b(1)
         .border_color(t.border)
-        .child(div().text_size(14).text_color(t.foreground).child("Add a Claude account"))
-        .child(div().text_size(12.5).text_color(t.dim).child("Give it a name. A sign-in opens beside your work; your chats, settings and skills are shared with the other accounts."))
         .child(
           h_flex()
-            .gap(8)
-            .pt(4)
-            .child(Input.new(this.accountInput).flex_1().min_w(0).h(32).px(10).rounded(7).border_1().border_color(t.input).bg(t.background).text_size(13).text_color(t.foreground))
-            .child(this.orcha.busy.add ? div().text_size(12.5).text_color(t.dim).child("adding…") : this.button(t, "acc-add", "Add and sign in", (_e, cx) => this.addAccount(cx))),
-        ),
+            .gap(12)
+            .items_center()
+            .child(div().flex_1().text_size(14).text_color(t.foreground).child("Add an account"))
+            .child(this.kindPicker(t)),
+        )
+        .child(
+          div()
+            .text_size(12.5)
+            .text_color(t.dim)
+            .child(
+              claude
+                ? "Give it a name. A sign-in opens beside your work; your chats, settings and skills are shared with the other accounts."
+                : added
+                  ? `${kind.label} is already here. It signs in where the ${kind.cli} CLI keeps it, so one ${kind.label} account per computer.`
+                  : `A sign-in opens beside your work (${kind.cli} login). It needs the ${kind.cli} CLI installed.`,
+            ),
+        )
+        .when(claude, (el) =>
+          el.child(
+            h_flex()
+              .gap(8)
+              .pt(4)
+              .child(Input.new(this.accountInput).flex_1().min_w(0).h(32).px(10).rounded(7).border_1().border_color(t.input).bg(t.background).text_size(13).text_color(t.foreground))
+              .child(addButton),
+          ),
+        )
+        .when(!claude && !added, (el) => el.child(h_flex().pt(4).child(addButton))),
     );
     return out.child(
       h_flex()
@@ -1149,16 +1227,25 @@ export default class Settings {
     );
   }
 
+  // Claude · Codex · Cursor: which agent the new account is for.
+  kindPicker(t) {
+    return this.segmented(t, "acc-kind", ACCOUNT_KINDS.map((k) => [k.kind, k.label]), this.orcha.addKind, (kind, cx) => {
+      this.orcha.addKind = kind;
+      cx.notify();
+    });
+  }
+
   addAccount(cx) {
     if (this.orcha.busy.add) return;
     this.orcha.busy.add = true;
     cx.notify();
     cx.spawn(async (cx) => {
-      const failed = await addAccount(this.accountInput.value());
+      const kind = this.orcha.addKind;
+      const failed = await addAccount(kind === "claude" ? this.accountInput.value() : "", kind);
       delete this.orcha.busy.add;
       if (failed) notify({ title: "The account was not added", body: failed, level: "error" });
       else {
-        this.accountInput.set_value("");
+        if (kind === "claude") this.accountInput.set_value("");
         notify({ title: "Sign in beside your work", body: "When it says you're in, press Enter there.", level: "success", timeout: 6000 });
         closeOverlay(props()?.overlay);
       }
@@ -1379,6 +1466,7 @@ export default class Settings {
         cx.notify();
       })
       .child(nav.h_full().child(div().flex_1()).child(this.button(t, "st-feedback", "Send feedback", () => { closeOverlay(props()?.overlay); run("app.feedback"); })))
+      .when(this.section === "projects", (el) => el.child(this.projectTabs(t, cx)))
       .child(
         // A bar that always shows: the pages are taller than the dialog and
         // people should see that they scroll.

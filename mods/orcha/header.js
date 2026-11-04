@@ -12,7 +12,7 @@
 
 import { div } from "gpui-kit";
 import { h_flex } from "gpui-base";
-import { spaces, agents, run, window, openOverlay, nextCommand } from "herdr";
+import { spaces, agents, run, window, openOverlay, nextCommand, focused, panes, setShared } from "herdr";
 import { tokens, chip, raised, icon, pill, closeTab, closePane } from "./ui.js";
 import { browseProject } from "./new.js";
 
@@ -59,7 +59,12 @@ export default class Header {
     const commands = {
       "find-file": () => openFinder("file"),
       "find-text": () => openFinder("text"),
-      "find-pane": () => openFinder("pane"),
+      // In the file viewer, ⌘F opens its own find bar (viewer.js).
+      "find-pane": () => {
+        const pane = focused()?.pane;
+        if (panes().some((p) => p.pane === pane && p.mod === "orcha")) setShared("orcha.viewerFind", { pane, seq: Date.now() });
+        else openFinder("pane");
+      },
       "find-link": () => openFinder("links"),
       settings: openSettings,
       accounts: openAccounts,
