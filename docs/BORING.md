@@ -81,7 +81,7 @@ rs = "editor:zed {path}:$L"
 - **FUEL and ACCOUNTS are empty.** Install the terminal [orcha](https://github.com/trungkien1208/orcha), then add an account.
 - **Signed in, but FUEL says the sign-in expired.** Update the terminal orcha (older ones read the old sign-in), then sign in once more.
 - **Herdr says "out of memory" after updates.** Quit it (`⌘Q`) and open it again. Your agents keep running.
-- **A panel is blank.** `herdr-app check ~/.config/herdr-app/mods/orcha` says what broke. [Open an issue](https://github.com/trungkien1208/orcha-app/issues) with it.
+- **A panel is blank.** `herdr-app check ~/.config/herdr-app/mods/orcha` says what broke. [Open an issue](https://github.com/trungkien1208/orcherd/issues) with it.
 - **Two Claude chats in one folder show the same model.** Known: they share the folder's newest conversation.
 - **Agents gone after a crash or reboot.** orcha resumes each chat it saw in the last 5 seconds before. Two Claude chats in one folder come back as one (they share the folder's newest conversation); start the other with `claude --resume`.
 

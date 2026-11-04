@@ -87,7 +87,7 @@
   <text x="1118" y="170" font-size="28" class="spark2">⚡</text>
   <text x="1110" y="102" font-size="24" class="spark">✨</text>
   <text x="888" y="222" font-size="26" class="spark2">⚡</text>
-  <text x="1012" y="312" text-anchor="middle" font-size="48" font-weight="900" fill="#111" letter-spacing="-1.5">GOATCHA</text>
+  <text x="1012" y="312" text-anchor="middle" font-size="48" font-weight="900" fill="#111" letter-spacing="-1.5">ORCHERD</text>
   <rect x="892" y="328" width="240" height="34" fill="#111" transform="rotate(-2 1012 345)"/>
   <text x="1012" y="352" text-anchor="middle" class="mono" font-size="16" font-weight="900" fill="#9fd36a" transform="rotate(-2 1012 345)">FINAL FINAL FINAL FORM</text>
   <rect x="886" y="378" width="34" height="34" rx="8" fill="#fff" stroke="#111" stroke-width="2.5"/><use href="#i-window" x="893" y="385" width="20" height="20" fill="#111"/>
@@ -97,7 +97,7 @@
   <text x="1070" y="402" font-size="19" font-weight="900" fill="#111">brain</text>
   <text x="1012" y="444" text-anchor="middle" font-size="18" font-weight="700" fill="#3d2f00">one app. zero tab chaos.</text>
   <rect x="930" y="464" width="164" height="40" rx="20" fill="#fff4d6" stroke="#111" stroke-width="4"/>
-  <text x="1012" y="491" text-anchor="middle" class="mono" font-size="16" font-weight="900" fill="#111">= orcha-app</text>
+  <text x="1012" y="491" text-anchor="middle" class="mono" font-size="16" font-weight="900" fill="#111">= orcherd</text>
 </g>
 <text x="40" y="580" class="mono" font-size="14" font-weight="800" fill="#111">no goats or whales were harmed in the making of this cockpit 🍵</text>
 </svg>

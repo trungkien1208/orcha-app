@@ -2,7 +2,7 @@
 # orcha for the Herdr desktop app: copies orcha's layout, themes and mods
 # into Herdr's config folder. Herdr picks them up live.
 #
-#   curl -fsSL https://raw.githubusercontent.com/trungkien1208/orcha-app/HEAD/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/trungkien1208/orcherd/HEAD/install.sh | sh
 #   sh install.sh          (from a clone)
 #   ORCHA_REF=v0.5.0 sh    (piped: that release instead of the newest code;
 #                           Settings › orcha's update button does this)
@@ -14,14 +14,14 @@
 # left alone.
 set -eu
 
-REPO="trungkien1208/orcha-app"
+REPO="trungkien1208/orcherd"
 src=$(cd "$(dirname "$0")" 2>/dev/null && pwd || true)
 fetched=
 cleanup_fetch() { [ -z "$fetched" ] || rm -rf "$fetched"; }
 trap cleanup_fetch EXIT
 if [ -z "$src" ] || [ ! -d "$src/mods/orcha" ]; then
   # Piped from curl: fetch this repository's current files (or ORCHA_REF's).
-  command -v curl >/dev/null 2>&1 || { echo "orcha-app needs curl"; exit 1; }
+  command -v curl >/dev/null 2>&1 || { echo "Orcherd needs curl"; exit 1; }
   fetched=$(mktemp -d)
   curl -fsSL "https://codeload.github.com/$REPO/tar.gz/${ORCHA_REF:-HEAD}" | tar -xz -C "$fetched"
   src=$(find "$fetched" -mindepth 1 -maxdepth 1 -type d | head -n 1)
@@ -81,7 +81,7 @@ def bind(keys):
     mine["cmd-shift-f"] = "orcha.find-text"
     mine["cmd-f"] = "orcha.find-pane"
     mine["cmd-l"] = "orcha.find-link"
-    # Cmd+W / Cmd+Shift+W on a project's last tab or pane close the project without asking.
+    # Cmd+W / Cmd+Shift+W close the tab / pane without asking; a project's last one leaves a fresh shell, the project stays.
     mine["cmd-w"] = "orcha.close-tab"
     mine["cmd-shift-w"] = "orcha.close-pane"
     return True

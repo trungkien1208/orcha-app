@@ -1,14 +1,14 @@
 <p align="center"><img src="docs/banner.svg" alt="The goat got a whale: Herdr app, but it slaps." width="100%" /></p>
 
-<p align="center"><b>Herdr's window 🪟 + orcha's brain 🧠 = GOATCHA.</b><br/>A plugin. Not a fork. Absolutely not normal.</p>
+<p align="center"><b>Herdr's window 🪟 + orcha's brain 🧠 = ORCHERD.</b><br/>A plugin. Not a fork. Absolutely not normal.</p>
 
 ## Why? 🐐 + 🐋
 
-<p align="center"><img src="docs/goatcha.svg" alt="The goat (Herdr app) brings a real window, terminals that never die, GPU speed and mods, but no brain. The whale (orcha) brings every agent at a glance, PROCESS trains, fuel and account switch, find, files and links, but no window. Together: GOATCHA, orcha-app." width="100%" /></p>
+<p align="center"><img src="docs/orcherd.svg" alt="The goat (Herdr app) brings a real window, terminals that never die, GPU speed and mods, but no brain. The whale (orcha) brings every agent at a glance, PROCESS trains, fuel and account switch, find, files and links, but no window. Together: ORCHERD." width="100%" /></p>
 
 ## Look 👀
 
-<p align="center"><img src="docs/cockpit.png" alt="orcha-app: projects and agents on the left, two agents side by side in folder tabs, PROCESS trains, fuel and git on the right" width="100%" /></p>
+<p align="center"><img src="docs/cockpit.png" alt="Orcherd: projects and agents on the left, two agents side by side in folder tabs, PROCESS trains, fuel and git on the right" width="100%" /></p>
 
 ## Install 🚀
 
@@ -21,7 +21,7 @@ curl -fsSL https://releases.herdr.dev/app/install.sh | sh
 **Step 2.** Release the whale 🐋:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/trungkien1208/orcha-app/HEAD/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/trungkien1208/orcherd/HEAD/install.sh | sh
 ```
 
 **Step 3.** Tell the goat who's boss: `⌘⇧P` → `layout.switch` → **orcha**. Or Settings › Look, click the one with the ✓ energy:

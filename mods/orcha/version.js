@@ -7,8 +7,8 @@
 import { exec, shared, setShared, notify } from "herdr";
 
 /** Bumped at every release, before the tag. */
-export const VERSION = "0.5.0";
-export const REPO = "trungkien1208/orcha-app";
+export const VERSION = "0.5.1";
+export const REPO = "trungkien1208/orcherd";
 const EVERY = 6 * 60 * 60 * 1000;
 
 const parse = (v) => (/^v?(\d+)\.(\d+)\.(\d+)/.exec(v ?? "") ?? []).slice(1, 4).map(Number);
@@ -38,7 +38,7 @@ export async function checkUpdate(force = false) {
   setShared("orcha.update", { ...before, checking: true });
   try {
     // GitHub answers 403 to a request without a User-Agent.
-    const r = await fetch(`https://api.github.com/repos/${REPO}/releases/latest`, { headers: { Accept: "application/vnd.github+json", "User-Agent": "orcha-app" } });
+    const r = await fetch(`https://api.github.com/repos/${REPO}/releases/latest`, { headers: { Accept: "application/vnd.github+json", "User-Agent": "orcherd" } });
     if (!r.ok) throw new Error(`GitHub said ${r.status}`);
     const rel = await r.json();
     setShared("orcha.update", { latest: rel.tag_name?.replace(/^v/, ""), url: rel.html_url, notes: rel.body ?? "", checked: Date.now() });

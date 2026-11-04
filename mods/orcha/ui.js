@@ -4,7 +4,7 @@
 
 import { div, svg, image } from "gpui-kit";
 import { h_flex, v_flex } from "gpui-base";
-import { theme, shared, panes, run, focused, home, props, closeOverlay, openOverlay } from "herdr";
+import { theme, shared, panes, spaces, run, focused, home, props, closeOverlay, openOverlay } from "herdr";
 
 function luminance(hex) {
   const n = parseInt((hex ?? "#000000").slice(1, 7), 16);
@@ -309,14 +309,19 @@ export function openWorktree(space, action, folder) {
   openOverlay({ mod: "worktree", kind: "dialog", width: 460, height: 280, props: { space, folder, action } });
 }
 
-/** Closes a tab (default: the shown one). On a project's last tab Herdr closes
- *  the project; `confirmed` skips its "end its terminals?" question, since
- *  that is what the click asked for. */
+/** Closes a tab (default: the shown one). On a project's last tab Herdr would
+ *  close the project, so a fresh shell tab opens in it first: the project
+ *  stays (only "Close project" closes it). `confirmed` skips the "end its
+ *  terminals?" question, since that is what the click asked for. */
 export function closeTab(id = focused()?.tab) {
-  if (id) run("tab.close", { id, confirmed: true });
+  if (!id) return;
+  const space = spaces().find((s) => s.tabs.some((t) => t.id === id));
+  const close = () => run("tab.close", { id, confirmed: true });
+  if (space && space.tabs.length === 1) Promise.resolve(run("tab.new", { space: space.id })).then(close);
+  else close();
 }
 
-/** Closes a pane; its tab (so the project, on the last one) when it was the only pane. */
+/** Closes a pane; its tab when it was the only pane (the project stays). */
 export function closePane(id = focused()?.pane) {
   const all = panes();
   const tab = all.find((p) => p.pane === id)?.tab;

@@ -1154,8 +1154,8 @@ export default class Settings {
         .border(2.5)
         .border_color(k.line)
         .bg(k.card)
-        .child(h_flex().gap(10).items_center().child(chip(k, "🐋 ORCHA", k.pink).h(24).px(9).text_size(12.5).border(2).border_color(k.line)).child(div().text_size(22).font_black().text_color(k.ink).child(`orcha-app ${VERSION}`)))
-        .child(div().pt(4).text_size(14).font_bold().text_color(k.ink).child("Herdr's window 🪟 + orcha's brain 🧠 = GOATCHA."))
+        .child(h_flex().gap(10).items_center().child(chip(k, "🐋 ORCHA", k.pink).h(24).px(9).text_size(12.5).border(2).border_color(k.line)).child(div().text_size(22).font_black().text_color(k.ink).child(`Orcherd ${VERSION}`)))
+        .child(div().pt(4).text_size(14).font_bold().text_color(k.ink).child("Herdr's window 🪟 + orcha's brain 🧠 = ORCHERD."))
         .child(div().text_size(12.5).text_color(k.muted).child("A plugin. Not a fork. Absolutely not normal.")),
       4,
       9,
