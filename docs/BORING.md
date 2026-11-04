@@ -17,7 +17,11 @@ You clicked. Respect. Here's everything nobody reads.
   </tr>
 </table>
 
-- 🗂 **Projects**: cards per agent (model, context, RAM in green, yellow, red). Pick an icon from ~150 emoji.
+- 🗂 **Projects**: cards per agent (model, context, RAM in green, yellow, red). Pick an icon from ~150 emoji. Drag one to reorder. **+ NEW** › New project… opens another folder (browse or type a path), the same folder again, or a new worktree. Closing a project's last pane closes the project.
+- 🌳 **Worktrees**: projects in one repo share a card, like Orca: a line per checkout (MAIN first), **+ worktree** to branch off, right-click › Remove worktree… (the branch stays).
+- 🖥 **Shells**: a shell running something shows it (`pnpm dev`) with a running dot, in the sidebar, its title bar and its tab; the ports it serves show as `:3000`, a click opens them.
+- 🔄 **Resume**: Herdr crashed or the Mac rebooted? Each Claude and Codex chat comes back in its pane (`claude --resume`, `codex resume`), no retyping.
+- 📊 **RAM**: the status bar shows Herdr in all (the window, herdr-core and every agent); hover for the split.
 - 🚂 **PROCESS**: each working agent is a train between THINK, CODE, TEST and DONE. Click one to jump there.
 - ⛽ **FUEL**: what's left on the plan of the agent in front of you: Claude, Codex or Cursor.
 - 🔁 **ACCOUNTS**: add one, sign in, **SWITCH** the chat in front of you (keep running, restart, or a new pane with notes).
@@ -35,6 +39,8 @@ You clicked. Respect. Here's everything nobody reads.
 | `⌘F` | search what the pane shows |
 | `⌘L` | links and paths the pane printed (`⌘C` copies one) |
 | `⌘,` | settings |
+| `⌘W` | close the tab (the project too, on its last tab) |
+| `⌘⇧W` | close the pane (the project too, on its last pane) |
 
 `⌘P` stays Herdr's terminal picker. All of these work only while the orcha layout is on.
 
@@ -77,7 +83,7 @@ rs = "editor:zed {path}:$L"
 - **Herdr says "out of memory" after updates.** Quit it (`⌘Q`) and open it again. Your agents keep running.
 - **A panel is blank.** `herdr-app check ~/.config/herdr-app/mods/orcha` says what broke. [Open an issue](https://github.com/trungkien1208/orcha-app/issues) with it.
 - **Two Claude chats in one folder show the same model.** Known: they share the folder's newest conversation.
-- **Agents gone after a reboot.** Herdr opens fresh shells; it doesn't bring agents back (yet).
+- **Agents gone after a crash or reboot.** orcha resumes each chat it saw in the last 5 seconds before. Two Claude chats in one folder come back as one (they share the folder's newest conversation); start the other with `claude --resume`.
 
 
 ## Uninstall, and where the installer writes

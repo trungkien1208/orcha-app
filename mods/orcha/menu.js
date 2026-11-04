@@ -5,68 +5,43 @@
 // Closing actions sit last, in red.
 
 import { div } from "gpui-kit";
-import { v_flex, h_flex } from "gpui-base";
-import { props, run, closeOverlay, openOverlay, panes, terminals, notify, hc, layout, settings, shared, setShared } from "herdr";
-import { tokens, icon, readable } from "./ui.js";
+import { props, run, openOverlay, panes, terminals, notify, hc, layout, settings, shared, setShared } from "herdr";
+import { tokens, drawMenu, closePane, openWorktree } from "./ui.js";
 import { linkInSelection, openLink, placeLinks, linkAt, transcriptLinks, completeLinks } from "./links.js";
 import { projectRoot } from "./files.js";
 import { ICON_OVERLAY } from "./icon.js";
 
+// A project's or a pane's rows: [icon, label, action, danger]; closing
+// actions sit last, after a line. A worktree (left.js: `linked`) can be
+// removed (Herdr's dialog closes its space, then `git worktree remove`; the
+// branch stays).
 function items(target) {
-  if (target?.kind === "project") {
+  const t = target ?? {};
+  if (t.kind === "project") {
     return [
-      ["chevron-right", "Open", "space.select", { id: target.id }],
-      ["plus", "New tab", "tab.new", { space: target.id }],
-      ["settings", "Rename…", "space.rename", { id: target.id }],
-      ["zap", "Set icon…", null, { overlay: { mod: "orcha", props: { part: "icon", target }, ...ICON_OVERLAY } }],
-      ["x", "Close project", "space.close", { id: target.id }, true],
+      ["chevron-right", "Open", () => run("space.select", { id: t.id })],
+      ["plus", "New tab", () => run("tab.new", { space: t.id })],
+      ["settings", "Rename…", () => run("space.rename", { id: t.id })],
+      ["zap", "Set icon…", () => openOverlay({ mod: "orcha", props: { part: "icon", target: t }, ...ICON_OVERLAY })],
+      null,
+      ...(t.linked ? [["git-branch", "Remove worktree…", () => openWorktree(t.id, "remove"), true]] : []),
+      ["x", "Close project", () => run("space.close", { id: t.id }), true],
     ];
   }
   return [
-    ["chevron-right", "Focus", "pane.focus", { pane: target?.pane }],
-    ["settings", "Rename tab…", "tab.rename", { id: target?.tab }],
-    ["columns-2", "Split right", "pane.split", { direction: "right", pane: target?.pane }],
-    ["maximize-2", "Zoom", "pane.zoom", { pane: target?.pane }],
-    ["x", "Close pane", "pane.close", { pane: target?.pane }, true],
+    ["chevron-right", "Focus", () => run("pane.focus", { pane: t.pane })],
+    ["settings", "Rename tab…", () => run("tab.rename", { id: t.tab })],
+    ["columns-2", "Split right", () => run("pane.split", { direction: "right", pane: t.pane })],
+    ["maximize-2", "Zoom", () => run("pane.zoom", { pane: t.pane })],
+    null,
+    ["x", "Close pane", () => closePane(t.pane), true],
   ];
 }
 
-// One menu: a title, if any, then rows of [icon, label, onClick, danger]; a
-// null row is a line between groups.
-function drawMenu(k, title, rows) {
-  const close = () => closeOverlay(props()?.overlay);
-  return v_flex()
-    .id("orcha-menu")
-    .w_full()
-    .p(5)
-    .rounded(8)
-    .border(2.5)
-    .border_color(k.line)
-    .bg(k.card)
-    .text_size(12.5)
-    .when(Boolean(title), (el) => el.child(div().px(8).pt(3).pb(5).text_size(11).font_black().text_color(k.dim).truncate().child(title)))
-    .children(
-      rows.map((row, i) => {
-        if (!row) return div().my(4).mx(4).h(1.5).bg(k.dim + "55");
-        const [name, label, onClick, danger] = row;
-        return h_flex()
-          .id(`orcha-menu-${i}`)
-          .h(30)
-          .px(8)
-          .gap(9)
-          .items_center()
-          .rounded(5)
-          .text_color(danger ? readable(k, k.red) : k.ink)
-          .hover((el) => el.bg(k.hover))
-          // Closes once the action is done: opening a link takes a moment, and
-          // a closed menu's tasks stop.
-          .on_click((_e, cx) => {
-            Promise.resolve(onClick(cx)).finally(close);
-          })
-          .child(icon(name, 14))
-          .child(div().flex_1().min_w(0).truncate().font_semibold().child(label));
-      }),
-    );
+/** The menu's height for `target`: 30 per row, 10 per line, title and edges. */
+export function menuHeight(target) {
+  const rows = items(target);
+  return 50 + rows.filter(Boolean).length * 30 + rows.filter((r) => !r).length * 10;
 }
 
 export default class Menu {
@@ -74,8 +49,7 @@ export default class Menu {
 
   render(_cx) {
     const target = props()?.target;
-    const rows = items(target).flatMap(([name, label, command, args, danger]) => [...(danger ? [null] : []), [name, label, () => (command ? run(command, args) : openOverlay(args.overlay)), danger]]);
-    return drawMenu(tokens(), (target?.name ?? "").toUpperCase(), rows);
+    return drawMenu(tokens(), (target?.name ?? "").toUpperCase(), items(target));
   }
 }
 
@@ -212,7 +186,7 @@ export class TerminalMenu {
       ...(toProgram ? [["menu", "Use this menu on right-click", () => run("terminal.right_click", { terminal: term.address, to: "menu" })]] : []),
       ...(parent ? [["arrow-down", `Send back to ${parent.name || parent.address}`, () => run("terminal.park", { terminal: term.address })]] : []),
       null,
-      ["x", "Close pane", () => run("pane.close", { pane: tg.pane }), true],
+      ["x", "Close pane", () => closePane(tg.pane), true],
     ];
     return drawMenu(k, link ? link.label ?? link.raw : null, rows);
   }

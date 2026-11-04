@@ -6,12 +6,15 @@
 //
 // The header is the one copy of orcha that listens for its keys (keys.json,
 // layout:orcha): orcha.settings (⌘,), orcha.accounts, orcha.find-file (⌘O), orcha.find-text (⌘⇧F),
-// orcha.find-pane (⌘F), orcha.find-link (⌘L) open FIND (finder.js).
+// orcha.find-pane (⌘F), orcha.find-link (⌘L) open FIND (finder.js);
+// orcha.close-tab (⌘W) and orcha.close-pane (⌘⇧W) close without Herdr's
+// question; orcha.new-project is NEW PROJECT's folder picker (new.js).
 
 import { div } from "gpui-kit";
 import { h_flex } from "gpui-base";
 import { spaces, agents, run, window, openOverlay, nextCommand } from "herdr";
-import { tokens, chip, raised, icon, pill } from "./ui.js";
+import { tokens, chip, raised, icon, pill, closeTab, closePane } from "./ui.js";
+import { browseProject } from "./new.js";
 
 // A square icon button with a hard shadow, like the other raised things.
 function square(k, id, name, tip, onClick) {
@@ -53,14 +56,20 @@ export function openFinder(mode) {
 
 export default class Header {
   constructor(cx) {
+    const commands = {
+      "find-file": () => openFinder("file"),
+      "find-text": () => openFinder("text"),
+      "find-pane": () => openFinder("pane"),
+      "find-link": () => openFinder("links"),
+      settings: openSettings,
+      accounts: openAccounts,
+      "close-tab": () => closeTab(),
+      "close-pane": () => closePane(),
+      // Not awaited: other keys work while the picker is up.
+      "new-project": browseProject,
+    };
     cx.spawn(async () => {
-      for (;;) {
-        const command = await nextCommand();
-        const mode = { "find-file": "file", "find-text": "text", "find-pane": "pane", "find-link": "links" }[command];
-        if (mode) openFinder(mode);
-        else if (command === "settings") openSettings();
-        else if (command === "accounts") openAccounts();
-      }
+      for (;;) commands[await nextCommand()]?.();
     });
   }
 

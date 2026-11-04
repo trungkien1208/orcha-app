@@ -51,6 +51,20 @@ export default class Status {
     return parts;
   }
 
+  // Herdr's RAM in all (the window, herdr-core and every terminal under it).
+  herdr(k, { app, all }) {
+    const size = (mb) => (mb >= 1024 ? `${(mb / 1024).toFixed(1)}G` : `${mb}M`);
+    const color = all >= 8192 ? k.red : all >= 4096 ? k.yellow : k.barText;
+    return h_flex()
+      .id("orcha-herdr-ram")
+      .gap(4)
+      .items_center()
+      .tooltip(`Herdr ${size(all)} in all: the window ${size(app)}, every terminal and agent ${size(all - app)}`)
+      .child(icon("cpu", 12, k.barText + "99"))
+      .child(div().text_color(k.barText + "99").child("Herdr"))
+      .child(div().font_black().text_color(color).child(size(all)));
+  }
+
   render(_cx) {
     const k = tokens();
     const space = spaces().find((s) => s.active);
@@ -62,6 +76,7 @@ export default class Status {
     const task = agentTitle(agent, pane) || pane?.program?.name || "";
     const git = shared("orcha.git");
     const quiet = (text) => div().text_color(k.barText + "99").child(text);
+    const facts = agentFacts();
     return h_flex()
       .id("orcha-status")
       .size_full()
@@ -84,6 +99,7 @@ export default class Status {
       )
       .when(Boolean(pane?.program?.agent), (el) => el.children(this.health(k, pane)))
       .child(div().flex_1())
+      .when(Boolean(facts.herdr?.all), (el) => el.child(this.herdr(k, facts.herdr)))
       .children([countChip(k, count("blocked"), "blocked"), countChip(k, count("working"), "working"), countChip(k, count("done"), "done")].filter(Boolean))
       .when(Boolean(pane?.program?.agent), (el) => el.child(h_flex().gap(4).items_center().child(icon("clock", 12, k.barText + "99")).child(quiet(elapsed(this.stateAge(pane))))))
       .child(div().font_black().child(clock()));

@@ -13,8 +13,9 @@
 
 import { div } from "gpui-kit";
 import { h_flex } from "gpui-base";
-import { spaces, panes, agents, run, openOverlay, focused, layout } from "herdr";
-import { tokens, icon, agentTitle, programIcon, stateColor, agentColor } from "./ui.js";
+import { spaces, panes, agents, run, focused, layout } from "herdr";
+import { tokens, icon, agentTitle, programIcon, stateColor, agentColor, closeTab, agentFacts, shellBusy } from "./ui.js";
+import { openNew } from "./new.js";
 
 const SHOWN = 6;
 
@@ -24,8 +25,7 @@ export default class Tabs {
   // A tab someone named keeps its name; else what its agent works on, else
   // the folder it is in, else its program, else its number. Herdr names a tab
   // after the agent it opens ("Codex", "Claude Code"): that is no name.
-  label(tab, allPanes, byPane) {
-    const lead = this.lead(tab, allPanes);
+  label(tab, lead, byPane) {
     const program = lead?.program?.name?.toLowerCase();
     if (tab.named && tab.name.toLowerCase() !== program) return tab.name;
     return agentTitle(byPane.get(lead?.pane), lead) || lead?.cwd?.split("/").pop() || lead?.program?.name || tab.name;
@@ -62,9 +62,10 @@ export default class Tabs {
     return el.h(30).flex_none().items_center().rounded_t(7);
   }
 
-  tab(k, tab, label, lead) {
+  // `busy`: a shell in it runs something (a server, a build): a running dot.
+  tab(k, tab, label, lead, busy) {
     const open = tab.active;
-    const status = tab.status && tab.status !== "idle" ? tab.status : null;
+    const status = tab.status && tab.status !== "idle" ? tab.status : busy ? "working" : null;
     const color = lead?.program?.agent ? agentColor(k, lead.program) : k.teal;
     const fg = open ? k.chipText : k.muted;
     return this.shape(h_flex())
@@ -82,7 +83,7 @@ export default class Tabs {
       .cursor_pointer()
       .hover((el) => (open ? el : el.text_color(k.ink).bg(k.ink + "26")))
       .on_click(() => run("tab.select", { id: tab.id }))
-      .on_mouse_down("middle", () => run("tab.close", { id: tab.id }))
+      .on_mouse_down("middle", () => closeTab(tab.id))
       .child(programIcon(lead?.program, 13, open ? fg : color) ?? icon("terminal", 13, open ? fg : color))
       .child(div().min_w(0).max_w(open ? 260 : 170).truncate().child(label))
       .when(Boolean(status), (el) =>
@@ -120,6 +121,7 @@ export default class Tabs {
     const allPanes = panes();
     this.followFocus(k, allPanes, cx);
     const byPane = new Map(agents().map((a) => [a.pane, a]));
+    const facts = agentFacts();
     const open = tabs.findIndex((t) => t.active);
     // Keep the open tab among the shown ones.
     const start = Math.max(0, Math.min(open - SHOWN + 1, tabs.length - SHOWN));
@@ -134,7 +136,13 @@ export default class Tabs {
       .gap(4)
       .items_end()
       .bg(k.frame)
-      .children(shown.map((t) => this.tab(k, t, this.label(t, allPanes, byPane), this.lead(t, allPanes))))
+      .children(
+        shown.map((t) => {
+          const lead = this.lead(t, allPanes);
+          const busy = allPanes.some((p) => p.tab === t.id && shellBusy(p, facts));
+          return this.tab(k, t, this.label(t, lead, byPane), lead, busy);
+        }),
+      )
       .when(hidden > 0, (el) =>
         el.child(
           this.shape(h_flex())
@@ -163,7 +171,7 @@ export default class Tabs {
           .cursor_pointer()
           .hover((s) => s.opacity(0.85))
           .tooltip("Open a new tab: an agent or a shell")
-          .on_click(() => openOverlay({ mod: "new-menu", kind: "popup", width: 250, height: 512 }))
+          .on_click(() => openNew())
           .child(icon("plus", 13, k.chipText))
           .child("NEW"),
       )

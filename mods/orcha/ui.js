@@ -4,7 +4,7 @@
 
 import { div, svg, image } from "gpui-kit";
 import { h_flex, v_flex } from "gpui-base";
-import { theme, shared } from "herdr";
+import { theme, shared, panes, run, focused, home, props, closeOverlay, openOverlay } from "herdr";
 
 function luminance(hex) {
   const n = parseInt((hex ?? "#000000").slice(1, 7), 16);
@@ -143,8 +143,8 @@ export function modelLabel(id) {
 }
 
 /** The model an agent pane runs, else its program's short name ("Claude"). */
-export function modelOf(pane) {
-  return agentFacts().models?.[pane?.terminal ?? ""] ?? pane?.program?.name?.replace(/ Code$/, "") ?? "agent";
+export function modelOf(pane, facts = agentFacts()) {
+  return facts.models?.[pane?.terminal ?? ""] ?? pane?.program?.name?.replace(/ Code$/, "") ?? "agent";
 }
 
 export const row = () => h_flex().items_center();
@@ -278,4 +278,92 @@ export function fuelGauge(k, name, entry) {
         .child(div().w(38).flex_none().text_right().text_size(12).font_black().text_color(readable(k, color)).child(`${left}%`)),
     )
     .when(Boolean(reset), (el) => el.child(div().pl(52).text_size(11).text_color(k.dim).child(reset)));
+}
+
+/** What a shell pane runs now: { cmd, ports } (left.js reads it), else null. */
+export function shellBusy(pane, facts = agentFacts()) {
+  return pane && !pane.program?.agent && pane.terminal ? facts.busy?.[pane.terminal] ?? null : null;
+}
+
+/** `:3000`, a port a dev server listens on; a click opens it. */
+export function portPill(k, id, port, open) {
+  return pill(k, `:${port}`, k.blue)
+    .id(id)
+    .cursor_pointer()
+    .hover((s) => s.opacity(0.8))
+    .tooltip(`Open http://localhost:${port}`)
+    .on_click((_e, cx) => {
+      cx.stop_propagation();
+      open(`http://localhost:${port}`);
+    });
+}
+
+/** "1 agent", "3 agents". */
+export const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+
+/** `~/x` (or `~`) as an absolute path. */
+export const expandHome = (path) => path.replace(/^~(?=\/|$)/, home());
+
+/** Herdr's worktree dialog: "new" (from `folder`) or "remove" a space's checkout. */
+export function openWorktree(space, action, folder) {
+  openOverlay({ mod: "worktree", kind: "dialog", width: 460, height: 280, props: { space, folder, action } });
+}
+
+/** Closes a tab (default: the shown one). On a project's last tab Herdr closes
+ *  the project; `confirmed` skips its "end its terminals?" question, since
+ *  that is what the click asked for. */
+export function closeTab(id = focused()?.tab) {
+  if (id) run("tab.close", { id, confirmed: true });
+}
+
+/** Closes a pane; its tab (so the project, on the last one) when it was the only pane. */
+export function closePane(id = focused()?.pane) {
+  const all = panes();
+  const tab = all.find((p) => p.pane === id)?.tab;
+  if (tab && !all.some((p) => p.tab === tab && p.pane !== id)) closeTab(tab);
+  else if (id) run("pane.close", { pane: id });
+}
+
+/** A menu in orcha's look: a title, if any, then rows of
+ *  [icon name or element, label, onClick, danger, hint]; a null row is a line
+ *  between groups. A click closes the menu once its action is done (opening a
+ *  link takes a moment, and a closed menu's tasks stop), unless the action
+ *  returns true. `selected` marks the keyboard's row. */
+export function drawMenu(k, title, rows, { selected = -1 } = {}) {
+  const close = () => closeOverlay(props()?.overlay);
+  let n = -1;
+  return v_flex()
+    .id("orcha-menu")
+    .w_full()
+    .p(5)
+    .rounded(8)
+    .border(2.5)
+    .border_color(k.line)
+    .bg(k.card)
+    .text_size(12.5)
+    .when(Boolean(title), (el) => el.child(div().px(8).pt(3).pb(5).text_size(11).font_black().text_color(k.dim).truncate().child(title)))
+    .children(
+      rows.map((row, i) => {
+        if (!row) return div().my(4).mx(4).h(1.5).bg(k.dim + "55");
+        n += 1;
+        const [glyph, label, onClick, danger, hint] = row;
+        return h_flex()
+          .id(`orcha-menu-${i}`)
+          .h(30)
+          .px(8)
+          .gap(9)
+          .flex_none()
+          .items_center()
+          .rounded(5)
+          .text_color(danger ? readable(k, k.red) : k.ink)
+          .when(n === selected, (el) => el.bg(k.hover))
+          .hover((el) => el.bg(k.hover))
+          .on_click((_e, cx) => {
+            Promise.resolve(onClick(cx)).then((keep) => keep || close(), close);
+          })
+          .child(typeof glyph === "string" ? icon(glyph, 14) : glyph)
+          .child(div().flex_1().min_w(0).truncate().font_semibold().child(label))
+          .when(Boolean(hint), (el) => el.child(div().text_size(10.5).font_black().text_color(k.dim).child(hint)));
+      }),
+    );
 }

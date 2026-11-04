@@ -9,9 +9,9 @@
 
 import { div } from "gpui-kit";
 import { v_flex, h_flex, Editor, EditorState, TextView } from "gpui-base";
-import { readTextFile, shared, setShared, settings, panes, focused, run, exec } from "herdr";
+import { readTextFile, shared, setShared, settings, panes, focused, exec } from "herdr";
 
-import { tokens, icon } from "./ui.js";
+import { tokens, icon, closePane } from "./ui.js";
 
 const LANG = { ts: "js", tsx: "js", mts: "js", cts: "js", jsx: "js", mjs: "js", toml: "yaml", jsonc: "json", svelte: "html", vue: "html" };
 const MAX = 400000;
@@ -104,7 +104,7 @@ export default class Viewer {
   close() {
     const tab = focused()?.tab;
     const me = panes().find((p) => p.mod === "orcha" && p.tab === tab);
-    if (me) run("pane.close", { pane: me.pane });
+    if (me) closePane(me.pane);
   }
 
   render(cx) {

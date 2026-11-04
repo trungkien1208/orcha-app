@@ -277,7 +277,7 @@ async function resolvePath(raw, cwd, root, on) {
 }
 
 /** Hands `target` (a path or a web address) to the system's app for it. */
-function systemOpen(target, reveal = false) {
+export function systemOpen(target, reveal = false) {
   const platform = window()?.platform;
   if (platform === "macos") return exec("open", reveal ? ["-R", target] : [target]);
   if (platform === "windows") return exec("explorer", [reveal ? `/select,${target}` : target]);

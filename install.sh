@@ -7,7 +7,7 @@
 #
 # Run it again to update. Only orcha's own files are written
 # (layouts/orcha.json and its preview, themes/orcha-*, mods/orcha*), plus orcha's keys for the
-# orcha layout in keys.json (Cmd+, Cmd+O Cmd+Shift+F Cmd+F Cmd+L) and orcha's
+# orcha layout in keys.json (Cmd+, Cmd+O Cmd+Shift+F Cmd+F Cmd+L Cmd+W Cmd+Shift+W) and orcha's
 # colors when no theme is picked yet; Herdr's shipped files and your own are
 # left alone.
 set -eu
@@ -79,6 +79,9 @@ def bind(keys):
     mine["cmd-shift-f"] = "orcha.find-text"
     mine["cmd-f"] = "orcha.find-pane"
     mine["cmd-l"] = "orcha.find-link"
+    # Cmd+W / Cmd+Shift+W on a project's last tab or pane close the project without asking.
+    mine["cmd-w"] = "orcha.close-tab"
+    mine["cmd-shift-w"] = "orcha.close-pane"
     return True
 
 def colors(person):

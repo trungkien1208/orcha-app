@@ -7,7 +7,7 @@
 // Keychain and the shared account folders stay orcha's business.
 
 import { readTextFile, writeTextFile, exec, hc, home, run, focused, agents, panes } from "herdr";
-import { agentTitle } from "./ui.js";
+import { agentTitle, expandHome } from "./ui.js";
 import { readTable, writeKey } from "./config.js";
 import { claudeTranscript, readTerminal } from "./links.js";
 
@@ -213,7 +213,7 @@ async function buildNotes(from, checklistFile) {
 
 // A Claude account's own folder, unless it is ~/.claude itself.
 function claudeDir(account) {
-  const dir = account.dir?.replace(/^~(?=\/)/, home());
+  const dir = account.dir && expandHome(account.dir);
   return dir && dir !== `${home()}/.claude` ? dir : null;
 }
 

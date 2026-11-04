@@ -7,7 +7,8 @@
 import { div } from "gpui-kit";
 import { h_flex } from "gpui-base";
 import { panes, agents, props, run, shared, setShared } from "herdr";
-import { tokens, agentColor, programIcon, ownTitle, modelOf, icon, agentFacts, stateColor, tokensShort, ago, WORD, agentTitle } from "./ui.js";
+import { tokens, agentColor, programIcon, ownTitle, modelOf, icon, agentFacts, stateColor, tokensShort, ago, WORD, agentTitle, closePane, shellBusy, portPill } from "./ui.js";
+import { systemOpen } from "./links.js";
 
 // Where this pane's title bar is in the window, learned when the pointer
 // passes over it: the right-click menu finds the cell under the pointer in a
@@ -26,11 +27,12 @@ export default class Pane {
     this.since = null; // { status, at }: when its state last changed
   }
 
-  // A dark chip on the agent's color: a state dot, the word, how long.
-  state(k, status) {
+  // A dark chip on the agent's color: a state dot, the word (for a shell,
+  // what it runs), how long.
+  state(k, status, word = WORD[status] ?? "idle") {
     const now = Date.now();
-    if (!this.since || this.since.status !== status) this.since = { status, at: now };
-    const word = WORD[status] ?? "idle";
+    const key = `${status} ${word}`;
+    if (!this.since || this.since.status !== key) this.since = { status: key, at: now };
     return h_flex()
       .flex_none()
       .h(18)
@@ -52,7 +54,7 @@ export default class Pane {
       .child(`${word} ${ago(now - this.since.at)}`);
   }
 
-  button(k, fg, id, name, command, args) {
+  button(k, fg, id, name, act) {
     return div()
       .id(id)
       .p(3)
@@ -61,7 +63,7 @@ export default class Pane {
       .hover((s) => s.bg(k.line + "22"))
       .on_click((_e, cx) => {
         cx.stop_propagation();
-        run(command, args);
+        act();
       })
       .child(icon(name, 13, fg));
   }
@@ -69,18 +71,21 @@ export default class Pane {
   render(_cx) {
     const k = tokens();
     const id = props()?.pane;
-    const p = panes().find((x) => x.pane === id);
+    const all = panes();
+    const p = all.find((x) => x.pane === id);
     if (!p) return div();
     const isAgent = Boolean(p.program?.agent);
     const agent = agents().find((a) => a.pane === id);
     // Agents in their color; a shell teal, as its tab.
     const bg = isAgent ? agentColor(k, p.program) : k.teal;
     const fg = k.chipText;
-    const lone = panes().filter((x) => x.tab === p.tab).length === 1;
+    const lone = !all.some((x) => x.tab === p.tab && x.pane !== id);
+    const facts = agentFacts();
     const task = isAgent ? agentTitle(agent, p) : ownTitle(p) || p.program?.name || "shell";
-    const name = isAgent ? modelOf(p).toUpperCase() : null;
-    const context = isAgent && p.terminal ? agentFacts().contexts?.[p.terminal] : null;
+    const name = isAgent ? modelOf(p, facts).toUpperCase() : null;
+    const context = isAgent && p.terminal ? facts.contexts?.[p.terminal] : null;
     const showTask = !isAgent || !lone;
+    const busy = shellBusy(p, facts);
     return h_flex()
       .id(`orcha-pane-${id}`)
       .size_full()
@@ -97,13 +102,14 @@ export default class Pane {
       .child(programIcon(p.program, 13, fg) ?? icon("terminal", 13, fg))
       .when(Boolean(name), (el) => el.child(div().flex_none().font_black().child(name)))
       .when(isAgent, (el) => el.child(this.state(k, p.status ?? "idle")))
+      .when(Boolean(busy), (el) => el.child(this.state(k, "working", busy.cmd)).children(busy.ports.slice(0, 3).map((port) => portPill(k, `op-port-${id}-${port}`, port, systemOpen))))
       .when(Boolean(context), (el) => el.child(h_flex().flex_none().gap(3).items_center().font_bold().child(icon("brain", 12, fg)).child(tokensShort(context))))
       .when(isAgent && showTask && Boolean(task), (el) => el.child(div().font_black().child("·")))
       .child(div().flex_1().min_w(0).truncate().when(p.focused, (el) => el.font_bold()).child(showTask ? task ?? "" : ""))
       .when(!isAgent && Boolean(p.cwd), (el) => el.child(div().max_w(240).truncate().text_color(k.chipText + "aa").child(p.cwd.replace(/^\/Users\/[^/]+/, "~"))))
-      .child(this.button(k, fg, `op-r-${id}`, "columns-2", "pane.split", { direction: "right", pane: id }))
-      .child(this.button(k, fg, `op-d-${id}`, "rows-2", "pane.split", { direction: "down", pane: id }))
-      .child(this.button(k, fg, `op-z-${id}`, p.zoomed ? "minimize-2" : "maximize-2", "pane.zoom", { pane: id }))
-      .child(this.button(k, fg, `op-x-${id}`, "x", "pane.close", { pane: id }));
+      .child(this.button(k, fg, `op-r-${id}`, "columns-2", () => run("pane.split", { direction: "right", pane: id })))
+      .child(this.button(k, fg, `op-d-${id}`, "rows-2", () => run("pane.split", { direction: "down", pane: id })))
+      .child(this.button(k, fg, `op-z-${id}`, p.zoomed ? "minimize-2" : "maximize-2", () => run("pane.zoom", { pane: id })))
+      .child(this.button(k, fg, `op-x-${id}`, "x", () => closePane(id)));
   }
 }

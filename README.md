@@ -30,4 +30,4 @@ curl -fsSL https://raw.githubusercontent.com/trungkien1208/orcha-app/HEAD/instal
 
 **Step 4.** There is no step 4. Go ship something. 🫡
 
-<sub>Fuel and accounts come from the terminal [orcha](https://github.com/trungkien1208/orcha) · update = run step 2 again · nerd stuff nobody reads: [click here 🥱](docs/BORING.md) · Apache-2.0 · the goat is Herdr's, the whale is ours 🍵</sub>
+<sub>New: worktrees in one card like Orca, dev servers with their ports, agents back after a crash, drag to reorder · Fuel and accounts come from the terminal [orcha](https://github.com/trungkien1208/orcha) · update = run step 2 again · nerd stuff nobody reads: [click here 🥱](docs/BORING.md) · Apache-2.0 · the goat is Herdr's, the whale is ours 🍵</sub>
