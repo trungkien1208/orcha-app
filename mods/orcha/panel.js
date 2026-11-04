@@ -9,7 +9,7 @@
 import { div } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
 import { focused, panes, spaces, exec, readTextFile, home, shared, setShared, openOverlay } from "herdr";
-import { tokens, button, icon, fuelGauge, readable } from "./ui.js";
+import { tokens, button, icon, fuelGauge, readable, agentFacts, chip } from "./ui.js";
 import { showSide } from "./sidetabs.js";
 import HandoffWatch from "./handoff-watch.js";
 import { refreshFuel, claudeAccountOf } from "./accounts-data.js";
@@ -108,20 +108,45 @@ export default class Panel {
   // The account the agent in front of you runs on (a Claude: the one in its
   // config folder, else the active one; others: the one last picked, else the
   // first), its email and limits.
+  // The key FUEL was read for: the agent kind, the pane, its account as the
+  // sidebar last read it (so a switch shows at once), any switch since.
+  fuelKeyNow() {
+    const f = focused();
+    return `${this.focusedKind()}:${f?.pane ?? ""}:${agentFacts().accounts?.[f?.terminal]?.id ?? ""}:${shared("orcha.fuelRev") ?? 0}`;
+  }
+
   readFuel(cx) {
     const kind = this.focusedKind();
     const f = focused();
-    const asked = (this.fuelKey = `${kind}:${f?.pane ?? ""}:${shared("orcha.fuelRev") ?? 0}`);
+    const asked = (this.fuelKey = this.fuelKeyNow());
     cx.spawn(async (cx) => {
       const config = await readJson(`${home()}/.config/orcha/config.json`);
       const accounts = (config?.accounts ?? []).filter((a) => a.kind === kind);
-      const pick = kind === "claude" && f?.terminal ? await claudeAccountOf(f.terminal) : null;
+      // The sidebar's read of the pane's account is instant; asking the
+      // process takes a few hundred ms, so only when it has none yet.
+      const known = kind === "claude" ? agentFacts().accounts?.[f?.terminal] : null;
+      const pick = kind === "claude" && f?.terminal ? known?.id ?? (await claudeAccountOf(f.terminal)) : null;
       const file = kind === "claude" ? "claude-active" : "selected-account";
       const fallback = pick ?? (await readTextFile(`${home()}/.config/orcha/${file}`))?.trim();
       const account = accounts.find((a) => a.id === fallback) ?? (kind === "claude" ? null : accounts[0]);
       if (!account || asked !== this.fuelKey) return;
       const limits = await readJson(`${home()}/.cache/orcha/limits/${account.id}.json`);
-      this.fuel = { label: account.label ?? account.id, email: account.email ?? null, limits };
+      // A switch clears the account's cached fuel: ask for it now, not in a minute.
+      if (!limits?.session && !limits?.weekly && !limits?.error && Date.now() - (this.kicked?.[account.id] ?? 0) > 30000) {
+        this.kicked = { ...this.kicked, [account.id]: Date.now() };
+        this.refreshFuel(cx);
+      }
+      // Borrowing: the account whose tokens are spent (its fuel below), a
+      // BORROWED chip, and one line saying whose chat it is.
+      const owner = known?.borrowed ? accounts.find((a) => a.id === known.seat) : null;
+      const short = (a) => (a.label ?? a.id).split("·").pop().trim();
+      this.fuel = {
+        label: account.label ?? account.id,
+        email: owner ? null : account.email ?? null,
+        chip: owner ? "🤝 BORROWED" : null,
+        sub: owner ? `${short(owner)}'s chat, running on ${short(account)}'s tokens` : null,
+        limits,
+      };
       cx.notify();
     });
   }
@@ -172,16 +197,18 @@ export default class Panel {
   render(cx) {
     const t = tokens();
     // FUEL follows the agent in front of you, and any switch of account.
-    if (`${this.focusedKind()}:${focused()?.pane ?? ""}:${shared("orcha.fuelRev") ?? 0}` !== this.fuelKey) this.readFuel(cx);
+    if (this.fuelKeyNow() !== this.fuelKey) this.readFuel(cx);
     const sections = [];
     if (this.fuel) {
       const rows = [
         h_flex()
           .gap(6)
-          .items_baseline()
+          .items_center()
           .child(div().text_size(12.5).font_bold().text_color(t.ink).child(this.fuel.label))
+          .when(Boolean(this.fuel.chip), (el) => el.child(chip(t, this.fuel.chip, t.pink).border(1.5).border_color(t.line)))
           .when(Boolean(this.fuel.email), (el) => el.child(div().flex_1().truncate().text_size(11).text_color(t.dim).child(this.fuel.email))),
       ];
+      if (this.fuel.sub) rows.push(div().text_size(11).text_color(t.dim).child(this.fuel.sub));
       const session = fuelGauge(t, "5H", this.fuel.limits?.session);
       const weekly = fuelGauge(t, "WEEK", this.fuel.limits?.weekly);
       const monthly = fuelGauge(t, "MONTH", this.fuel.limits?.monthly);

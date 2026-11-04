@@ -1,13 +1,14 @@
 // The low-fuel watch (Settings › Hand-off): once a minute, the fuel left on
-// the Claude account in use against the three marks. Under the checklist
+// the Claude account of the agent in front of you (else the default one)
+// against the three marks. Under the checklist
 // mark, the agent in front of you is asked for a checklist; under the offer
 // mark, a note offers to switch; under the auto mark, the chat moves to the
 // account with the most fuel, once the agent is between turns. Each mark
 // fires once per account and plan window.
 
 import { agents, notify, setShared } from "herdr";
-import { fuelLeft } from "./ui.js";
-import { readAccounts, readHandoff, keepRunningOn, handOff, restartOn, askForChecklist, focusedAgent } from "./accounts-data.js";
+import { fuelLeft, agentFacts } from "./ui.js";
+import { readAccounts, readHandoff, keepRunningOn, handOff, restartOn, askForChecklist, focusedAgent, claudeAccountOf } from "./accounts-data.js";
 
 // The tighter of an account's limits, and when that window resets.
 function fuel(account) {
@@ -27,7 +28,11 @@ export default class HandoffWatch {
       const h = await readHandoff();
       if (!h.checklist_percent && !h.low_fuel_percent && !h.auto_handoff_percent) return;
       const { list, active } = await readAccounts();
-      const account = list.find((a) => a.id === active);
+      const front = focusedAgent();
+      // The sidebar's read of the pane's account, else ask the process.
+      const claude = front?.terminal && front.program?.key?.includes("claude");
+      const mine = claude ? agentFacts().accounts?.[front.terminal]?.id ?? (await claudeAccountOf(front.terminal)) : null;
+      const account = list.find((a) => a.id === (mine ?? active));
       const now = account && fuel(account);
       if (!now) return;
       const once = (mark) => {
@@ -37,7 +42,7 @@ export default class HandoffWatch {
         return true;
       };
       const label = account.label ?? account.id;
-      const others = list.filter((a) => a.kind === "claude" && a.id !== active).map((a) => ({ a, f: fuel(a) })).filter((x) => x.f && x.f.left > now.left);
+      const others = list.filter((a) => a.kind === "claude" && a.id !== account.id).map((a) => ({ a, f: fuel(a) })).filter((x) => x.f && x.f.left > now.left);
       const best = others.sort((x, y) => y.f.left - x.f.left)[0]?.a ?? null;
 
       if (h.auto_handoff_percent && now.left < h.auto_handoff_percent && best) {

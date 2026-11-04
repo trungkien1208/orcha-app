@@ -104,3 +104,4 @@ Then `⌘⇧P` → `layout.switch` back to another layout.
 - `settings.js` starts from Herdr's settings page: compare with a new Herdr's `frame/settings/main.js` on updates.
 - Animate with Herdr's native `.loop`, `.transition` and `.frames`, never timers.
 - Loop: `sh install.sh`, `herdr-app check ~/.config/herdr-app/mods/orcha`, `herdr-app shot shot.png`. Herdr refuses reloads after many in one run: batch your installs.
+- Releasing: bump `VERSION` in `mods/orcha/version.js`, commit, tag `vX.Y.Z`, `gh release create`. Installed copies ask GitHub's latest release every few hours, show a pink pill in the header, and Settings › 🐋 orcha installs that tag (`ORCHA_REF=vX.Y.Z` for `install.sh`).

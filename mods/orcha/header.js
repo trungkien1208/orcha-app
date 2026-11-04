@@ -15,6 +15,7 @@ import { h_flex } from "gpui-base";
 import { spaces, agents, run, window, openOverlay, nextCommand, focused, panes, setShared } from "herdr";
 import { tokens, chip, raised, icon, pill, closeTab, closePane } from "./ui.js";
 import { browseProject } from "./new.js";
+import { available, checkUpdate, landed } from "./version.js";
 
 // A square icon button with a hard shadow, like the other raised things.
 function square(k, id, name, tip, onClick) {
@@ -39,9 +40,10 @@ function square(k, id, name, tip, onClick) {
   return raised(k, el, 2, 6);
 }
 
-/** Opens SETTINGS: Herdr's settings with orcha's on top (settings.js). */
-export function openSettings() {
-  openOverlay({ mod: "orcha", props: { part: "settings" }, kind: "dialog", width: 900, height: 620 });
+/** Opens SETTINGS: Herdr's settings with orcha's on top (settings.js), on
+ *  `section` when given. */
+export function openSettings(section) {
+  openOverlay({ mod: "orcha", props: { part: "settings", section }, kind: "dialog", width: 900, height: 620 });
 }
 
 /** Opens ACCOUNTS. */
@@ -66,7 +68,7 @@ export default class Header {
         else openFinder("pane");
       },
       "find-link": () => openFinder("links"),
-      settings: openSettings,
+      settings: () => openSettings(),
       accounts: openAccounts,
       "close-tab": () => closeTab(),
       "close-pane": () => closePane(),
@@ -76,6 +78,10 @@ export default class Header {
     cx.spawn(async () => {
       for (;;) commands[await nextCommand()]?.();
     });
+    // A newer orcha on GitHub? Asked now and every few hours (version.js).
+    landed();
+    checkUpdate();
+    cx.timer.every(60 * 60 * 1000, () => checkUpdate());
   }
 
   render(_cx) {
@@ -85,6 +91,7 @@ export default class Header {
     const working = list.filter((a) => a.status === "working").length;
     const needs = list.filter((a) => a.status === "blocked").length;
     const mac = window()?.platform === "macos";
+    const next = available();
     const search = raised(
       k,
       h_flex()
@@ -128,13 +135,26 @@ export default class Header {
           .items_center()
           .child(pill(k, `${projects} projects`, k.dim))
           .when(working > 0, (el) => el.child(pill(k, `${working} running`, k.yellow)))
-          .when(needs > 0, (el) => el.child(pill(k, `${needs} needs you`, k.red).loop("opacity", { from: 0.55, to: 1, period: 1200 }))),
+          .when(needs > 0, (el) => el.child(pill(k, `${needs} needs you`, k.red).loop("opacity", { from: 0.55, to: 1, period: 1200 })))
+          .when(Boolean(next), (el) =>
+            el.child(
+              div()
+                .id("orcha-update")
+                .cursor_pointer()
+                .tooltip("A bigger whale surfaced. Click to release it.")
+                .on_click((_e, cx) => {
+                  cx.stop_propagation();
+                  openSettings("whale");
+                })
+                .child(raised(k, chip(k, `🐋 ${next.latest} IS OUT · UPDATE`, k.pink).h(22).px(8).border(2).border_color(k.line), 2, 5).loop("opacity", { from: 0.7, to: 1, period: 1600 })),
+            ),
+          ),
       )
       .child(div().flex_1())
       .child(div().w(340).flex_shrink(1).min_w(160).child(search))
       .child(div().flex_1())
       .child(square(k, "orcha-palette", "command", "Commands (⌘⇧P)", () => run("app.palette")))
       .child(square(k, "orcha-accounts", "user-round", "Accounts", openAccounts))
-      .child(square(k, "orcha-settings", "settings", "Settings (⌘,)", openSettings));
+      .child(square(k, "orcha-settings", "settings", "Settings (⌘,)", () => openSettings()));
   }
 }

@@ -4,6 +4,8 @@
 #
 #   curl -fsSL https://raw.githubusercontent.com/trungkien1208/orcha-app/HEAD/install.sh | sh
 #   sh install.sh          (from a clone)
+#   ORCHA_REF=v0.5.0 sh    (piped: that release instead of the newest code;
+#                           Settings › orcha's update button does this)
 #
 # Run it again to update. Only orcha's own files are written
 # (layouts/orcha.json and its preview, themes/orcha-*, mods/orcha*), plus orcha's keys for the
@@ -18,10 +20,10 @@ fetched=
 cleanup_fetch() { [ -z "$fetched" ] || rm -rf "$fetched"; }
 trap cleanup_fetch EXIT
 if [ -z "$src" ] || [ ! -d "$src/mods/orcha" ]; then
-  # Piped from curl: fetch this repository's current files.
+  # Piped from curl: fetch this repository's current files (or ORCHA_REF's).
   command -v curl >/dev/null 2>&1 || { echo "orcha-app needs curl"; exit 1; }
   fetched=$(mktemp -d)
-  curl -fsSL "https://codeload.github.com/$REPO/tar.gz/HEAD" | tar -xz -C "$fetched"
+  curl -fsSL "https://codeload.github.com/$REPO/tar.gz/${ORCHA_REF:-HEAD}" | tar -xz -C "$fetched"
   src=$(find "$fetched" -mindepth 1 -maxdepth 1 -type d | head -n 1)
   [ -d "$src/mods/orcha" ] || { echo "the download did not contain orcha's mods"; exit 1; }
 fi

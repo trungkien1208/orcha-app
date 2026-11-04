@@ -3,11 +3,12 @@
 // Accounts and Layout. Writes changes immediately; no Save step.
 
 import { div, svg, image } from "gpui-kit";
-import { v_flex, h_flex, Scrollbar, InputState, Input } from "gpui-base";
+import { v_flex, h_flex, Scrollbar, InputState, Input, TextView } from "gpui-base";
 import { hc, run, theme, themes, fonts, updates, telemetry, settings, layouts, shared, setShared, appHome, readTextFile, writeTextFile, playSound, props, closeOverlay, window, spaces, exec, home, layout, notify } from "herdr";
 import { RULES, SKILLS } from "./catalog.js";
-import { fuelGauge, tokens, projectTile } from "./ui.js";
-import { readAccounts, activateAccount, refreshFuel, addAccount, signIn, ACCOUNT_KINDS, readHandoff, writeHandoff, HANDOFF_DEFAULTS } from "./accounts-data.js";
+import { fuelGauge, tokens, projectTile, raised, chip } from "./ui.js";
+import { VERSION, REPO, updateInfo, available, checkUpdate, runUpdate } from "./version.js";
+import { readAccounts, makeDefault, refreshFuel, addAccount, signIn, ACCOUNT_KINDS, readHandoff, writeHandoff, HANDOFF_DEFAULTS } from "./accounts-data.js";
 
 // Copies skill folders from a GitHub repo's tarball: no Node needed. A skill
 // is the folder whose SKILL.md says `name: <skill>`, else a folder so named.
@@ -36,6 +37,7 @@ const SECTIONS = [
   { id: "accounts", title: "Accounts", svg: O("fuel") },
   { id: "handoff", title: "Hand-off", svg: O("handoff") },
   { id: "orcha", title: "Layout", svg: O("columns-2") },
+  { id: "whale", title: "orcha", emoji: "🐋" },
   { id: "look", title: "Look", icon: "palette" },
   ...(window()?.platform === "macos" ? [{ id: "keyboard", title: "Keyboard", icon: "keyboard" }] : []),
   { id: "machines", title: "Machines", icon: "server" },
@@ -1109,13 +1111,142 @@ export default class Settings {
     return out;
   }
 
+  // orcha: the whale itself ---------------------------------------------
+  // Which orcha this is, and the newer one when GitHub has it (version.js).
+  // Written like the README: loud on purpose.
+
+  whale(t, cx) {
+    const k = tokens();
+    const u = updateInfo();
+    const next = available();
+    const updating = shared("orcha.updating");
+    const open = (url) => exec("open", [url]);
+    const at = (ms) => new Date(ms).toTimeString().slice(0, 5);
+    const big = (id, label, onClick) =>
+      raised(
+        k,
+        div()
+          .id(id)
+          .px(14)
+          .h(32)
+          .flex()
+          .items_center()
+          .rounded(6)
+          .border(2)
+          .border_color(k.line)
+          .bg(k.yellow)
+          .cursor_pointer()
+          .text_size(13)
+          .font_black()
+          .text_color(k.chipText)
+          .hover((s) => s.opacity(0.9))
+          .on_click(onClick)
+          .child(label),
+        3,
+        6,
+      );
+    const hero = raised(
+      k,
+      v_flex()
+        .gap(6)
+        .p(18)
+        .rounded(9)
+        .border(2.5)
+        .border_color(k.line)
+        .bg(k.card)
+        .child(h_flex().gap(10).items_center().child(chip(k, "🐋 ORCHA", k.pink).h(24).px(9).text_size(12.5).border(2).border_color(k.line)).child(div().text_size(22).font_black().text_color(k.ink).child(`orcha-app ${VERSION}`)))
+        .child(div().pt(4).text_size(14).font_bold().text_color(k.ink).child("Herdr's window 🪟 + orcha's brain 🧠 = GOATCHA."))
+        .child(div().text_size(12.5).text_color(k.muted).child("A plugin. Not a fork. Absolutely not normal.")),
+      4,
+      9,
+    );
+    let status;
+    if (updating || this.orcha.busy.update) {
+      status = v_flex()
+        .gap(4)
+        .child(div().text_size(15).font_black().text_color(k.ink).child("Releasing the whale… 🐋💨"))
+        .child(div().text_size(12.5).text_color(k.muted).child(`Hauling ${updating?.to ?? next?.latest ?? "it"} out of GitHub. Herdr reloads when it lands. Don't panic, the goat is holding the door.`));
+    } else if (next) {
+      status = v_flex()
+        .gap(10)
+        .child(div().text_size(15).font_black().text_color(k.ink).child(`🌊 A bigger whale just surfaced: ${next.latest}`))
+        .child(div().text_size(12.5).text_color(k.muted).child(`You're on ${VERSION}, which is basically a fossil now. One click, no Terminal, no tears.`))
+        .child(
+          h_flex()
+            .gap(10)
+            .items_center()
+            .child(big("whale-update", "Release the whale 🐋", (_e, cx) => this.updateWhale(next.latest, cx)))
+            .child(this.button(t, "whale-notes", "What's new 📜", () => open(next.url ?? `https://github.com/${REPO}/releases`))),
+        )
+        .when(Boolean(next.notes), (el) =>
+          el.child(
+            div()
+              .mt(4)
+              .p(14)
+              .rounded(8)
+              .border(2)
+              .border_color(k.line)
+              .bg(k.paper)
+              .text_size(12.5)
+              .text_color(k.ink)
+              .child(TextView.markdown("whale-notes-md", next.notes).selectable(true).on_link_click((url) => open(url))),
+          ),
+        );
+    } else if (u.error) {
+      status = v_flex()
+        .gap(8)
+        .child(div().text_size(15).font_black().text_color(k.ink).child("🛜 The ocean is offline."))
+        .child(div().text_size(12.5).text_color(k.muted).child(`GitHub didn't pick up (${u.error}). Check your Wi-Fi, then poke it again.`))
+        .child(h_flex().child(this.button(t, "whale-check", "Poke GitHub again 🔭", () => checkUpdate(true))));
+    } else if (u.checking || !u.checked) {
+      status = div().text_size(15).font_black().text_color(k.ink).child("Scanning the ocean for bigger whales… 🔭");
+    } else {
+      status = v_flex()
+        .gap(8)
+        .child(div().text_size(15).font_black().text_color(k.ink).child("✨ Freshest whale in the ocean."))
+        .child(div().text_size(12.5).text_color(k.muted).child(`Nothing to update. GitHub was asked at ${at(u.checked)} and it shrugged.`))
+        .child(h_flex().child(this.button(t, "whale-check", "Check again anyway 🔭", () => checkUpdate(true))));
+    }
+    return v_flex()
+      .w_full()
+      .gap(18)
+      .child(hero)
+      .child(v_flex().gap(6).child(this.heading(t, "Updates")).child(status))
+      .child(
+        v_flex()
+          .gap(8)
+          .child(this.heading(t, "Links"))
+          .child(
+            h_flex()
+              .gap(8)
+              .child(this.button(t, "whale-gh", "GitHub 🐙", () => open(`https://github.com/${REPO}`)))
+              .child(this.button(t, "whale-rel", "All releases 📦", () => open(`https://github.com/${REPO}/releases`)))
+              .child(this.button(t, "whale-boring", "Nerd stuff 🥱", () => open(`https://github.com/${REPO}/blob/main/docs/BORING.md`))),
+          ),
+      )
+      .child(div().text_size(11.5).text_color(t.dim).child("New releases show up as a pink pill in the header. The goat is Herdr's, the whale is ours 🍵"));
+  }
+
+  updateWhale(version, cx) {
+    if (this.orcha.busy.update) return;
+    this.orcha.busy.update = true;
+    cx.notify();
+    cx.spawn(async (cx) => {
+      const failed = await runUpdate(version);
+      delete this.orcha.busy.update;
+      if (failed) notify({ title: "The whale got stuck 🐋🪤", body: failed, level: "error" });
+      cx.notify();
+    });
+  }
+
   // orcha: Accounts ------------------------------------------------------
 
   loadAccounts(cx) {
     cx.spawn(async (cx) => {
-      const { list, active } = await readAccounts();
+      // ✓ default: the default account, even while the main folder borrows another.
+      const { list, main } = await readAccounts();
       this.orcha.accounts = list;
-      this.orcha.active = active;
+      this.orcha.active = main;
       cx.notify();
     });
   }
@@ -1125,10 +1256,12 @@ export default class Settings {
     this.orcha.busy[a.id] = true;
     cx.notify();
     cx.spawn(async (cx) => {
-      const failed = await activateAccount(a.id);
+      const failed = await makeDefault(a.id);
       delete this.orcha.busy[a.id];
-      if (!failed) this.orcha.active = a.id;
-      else notify({ title: "The account was not switched", body: failed, level: "error" });
+      if (!failed) {
+        this.orcha.active = a.id;
+        notify({ title: `${a.label ?? a.id} is the default now`, body: "New chats start on it. Chats you moved in their pane (👤) keep their own.", level: "success", timeout: 5000 });
+      } else notify({ title: "The default was not changed", body: failed, level: "error" });
       cx.notify();
     });
   }
@@ -1139,7 +1272,7 @@ export default class Settings {
     const out = v_flex()
       .w_full()
       .child(this.heading(t, "Accounts"))
-      .child(div().pb(6).text_size(12.5).text_color(t.dim).child("Claude chats use the account in use; running ones move within half a minute. Fuel is what is left of each plan, read by orcha."));
+      .child(div().pb(6).text_size(12.5).text_color(t.dim).child("The default account is the one new Claude chats start on, and chats started the usual way follow it. To move just one chat, click into it and use 👤 in the header. Fuel is what is left of each plan, read by orcha."));
     for (const a of this.orcha.accounts ?? []) {
       const inUse = a.kind === "claude" && a.id === this.orcha.active;
       const gauges = [fuelGauge(k, "5H", a.limits.session), fuelGauge(k, "WEEK", a.limits.weekly), fuelGauge(k, "MONTH", a.limits.monthly)].filter(Boolean);
@@ -1149,10 +1282,10 @@ export default class Settings {
           : a.kind !== "claude"
           ? div()
           : inUse
-            ? div().text_size(12.5).text_color(t.done).child("✓ in use")
+            ? div().text_size(12.5).text_color(t.done).child("✓ default")
             : this.orcha.busy[a.id]
-              ? div().text_size(12.5).text_color(t.dim).child("switching…")
-              : this.button(t, `acc-${a.id}`, "Use", (_e, cx) => this.useAccount(a, cx));
+              ? div().text_size(12.5).text_color(t.dim).child("changing…")
+              : this.button(t, `acc-${a.id}`, "Make default", (_e, cx) => this.useAccount(a, cx));
       out.child(
         v_flex()
           .w_full()
@@ -1432,11 +1565,12 @@ export default class Settings {
               if (s.id === "projects") this.loadProject(cx);
               if (s.id === "accounts") this.loadAccounts(cx);
               if (s.id === "handoff") this.loadHandoff(cx);
+              if (s.id === "whale") checkUpdate();
               cx.notify();
             })
-            .child(svg(s.svg ?? I(s.icon)).size(15).text_color(on ? t.accent : t.dim))
+            .child(s.emoji ? div().w(15).text_size(13).child(s.emoji) : svg(s.svg ?? I(s.icon)).size(15).text_color(on ? t.accent : t.dim))
             .child(div().flex_1().text_size(13.5).text_color(on ? t.foreground : t.muted).child(s.title))
-            .when(s.id === "updates" && waiting, (el) => el.child(div().w(7).h(7).rounded(4).bg(t.accent)));
+            .when((s.id === "updates" && waiting) || (s.id === "whale" && Boolean(available())), (el) => el.child(div().w(7).h(7).rounded(4).bg(t.accent)));
         }),
       );
     return h_flex()
@@ -1495,6 +1629,8 @@ export default class Settings {
                         ? this.handoff(t, cx)
                       : this.section === "orcha"
                         ? this.orchaLayout(t, cx)
+                      : this.section === "whale"
+                        ? this.whale(t, cx)
                       : this.section === "look"
                       ? this.look(t, cx)
                       : this.section === "keyboard"

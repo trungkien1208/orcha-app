@@ -32,6 +32,7 @@ import {
   shellBusy,
   portPill,
 } from "./ui.js";
+import { readPaneAccounts } from "./accounts-data.js";
 import { systemOpen } from "./links.js";
 import { menuHeight } from "./menu.js";
 import { ICON_OVERLAY } from "./icon.js";
@@ -178,6 +179,9 @@ export default class Left {
     this.readTranscripts(cx);
     cx.timer.every(4000, (cx) => this.readMemory(cx));
     cx.timer.every(5000, (cx) => this.readTranscripts(cx));
+    // Which account each Claude pane runs on: FUEL reads it, at once.
+    this.readAccountsOf(cx);
+    cx.timer.every(15000, (cx) => this.readAccountsOf(cx));
     cx.timer.every(60000, (cx) => this.readIcons(cx));
     // A folder's repo rarely changes; a new folder is read on sight (render).
     cx.timer.every(60000, (cx) => this.readGit([...new Set([...indexSpaces(spaces(), panes()).values()].map((x) => x.key))], cx, true));
@@ -357,6 +361,16 @@ export default class Left {
       const keep = { ...this.lost, ...sessions };
       if (JSON.stringify(keep) !== JSON.stringify(shared("orcha.sessions") ?? {})) setShared("orcha.sessions", keep);
       cx.notify();
+    });
+  }
+
+  readAccountsOf(cx) {
+    cx.spawn(async () => {
+      try {
+        this.publish({ accounts: await readPaneAccounts() });
+      } catch {
+        // the last read stays
+      }
     });
   }
 
@@ -937,6 +951,16 @@ export default class Left {
 
   render(cx) {
     const k = tokens();
+    // An account was switched: read the panes' accounts now, and again once a
+    // restarted Claude is up.
+    const fuelRev = shared("orcha.fuelRev") ?? 0;
+    if (fuelRev !== this.fuelRev) {
+      if (this.fuelRev !== undefined) {
+        this.readAccountsOf(cx);
+        cx.timer.after(6000, (cx) => this.readAccountsOf(cx));
+      }
+      this.fuelRev = fuelRev;
+    }
     const rev = shared("orcha.iconsRev") ?? 0;
     if (rev !== this.iconsRev) {
       this.iconsRev = rev;

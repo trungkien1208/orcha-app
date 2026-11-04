@@ -1,25 +1,27 @@
 // ACCOUNTS (SPEC §3.2), opened from FUEL or the header: one row per account
 // with its plan limits. The account the agent in front of you runs on has the
 // heavy border, the yellow edge and IN USE; the one with the most fuel left is
-// BEST and gets the raised green SWITCH. SWITCH moves the chat in front of you
-// (Settings › Hand-off says how, else it asks: keep running, restart, new
-// pane); without an agent in front, Claude chats move and others open in a new
-// tab. An account without fuel to read offers SIGN IN. + ADD ACCOUNT adds a
-// Claude account and opens its sign-in.
+// BEST and gets the raised green SWITCH. SWITCH moves only the chat in front
+// of you (Settings › Hand-off says how, else it asks: keep running, restart,
+// new pane); keep running borrows the account's sign-in in the chat's folder,
+// with any chat sharing it, and FUEL shows it BORROWED.
+// Without an agent in front, SWITCH starts a new chat on the account. The
+// default account for new chats is Settings › Accounts' business, never this.
+// An account without fuel to read offers SIGN IN. + ADD ACCOUNT adds a Claude
+// account and opens its sign-in.
 //
 // Read from orcha's own files (config.json, the limits cache): opening the
 // popup asks nothing of the network. `r` refreshes through `limits.py json`.
 
 import { div } from "gpui-kit";
 import { v_flex, h_flex, InputState, Input } from "gpui-base";
-import { props, closeOverlay, notify, run, setShared } from "herdr";
-import { readAccounts, activateAccount, refreshFuel, addAccount, signIn, handOff, restartOn, keepRunningOn, claudeAccountOf, readHandoff, focusedAgent } from "./accounts-data.js";
+import { props, closeOverlay, notify, setShared } from "herdr";
+import { readAccounts, refreshFuel, addAccount, signIn, handOff, restartOn, keepRunningOn, keepInfo, startOn, claudeAccountOf, readHandoff, focusedAgent } from "./accounts-data.js";
 import { tokens, raised, chip, button, icon, fuelGauge, fuelLeft, readable } from "./ui.js";
 
 export default class Accounts {
   constructor(cx) {
     this.list = [];
-    this.active = null;
     this.at = 0;
     this.busy = null;
     this.choosing = null; // account id whose hand-off choices show
@@ -41,12 +43,13 @@ export default class Accounts {
     cx.spawn(async (cx) => {
       const { list, active } = await readAccounts();
       this.list = list;
-      this.active = active;
       // What IN USE means: the account of the agent in front of you.
       const from = focusedAgent();
       const key = from?.program?.key ?? "claude";
       if (key.includes("claude")) this.using = (from?.terminal && (await claudeAccountOf(from.terminal))) || active;
       else this.using = list.find((a) => key.includes(a.kind))?.id ?? null;
+      // What keep running would do: why not, or how many other chats move with it.
+      this.keep = from && key.includes("claude") ? await keepInfo(from) : { why: null, others: 0 };
       const current = list.findIndex((a) => a.id === this.using);
       if (current >= 0 && this.at === 0) this.at = current;
       cx.notify();
@@ -70,25 +73,6 @@ export default class Accounts {
 
   close() {
     closeOverlay(props()?.overlay);
-  }
-
-  use(account, cx) {
-    if (account.kind !== "claude" || account.id === this.active || this.busy) return;
-    this.busy = account.id;
-    cx.notify();
-    cx.spawn(async (cx) => {
-      const failed = await activateAccount(account.id);
-      this.busy = null;
-      setShared("orcha.fuelRev", Date.now());
-      if (!failed) {
-        this.active = account.id;
-        this.using = account.id;
-        notify({ title: `Claude chats use ${account.label ?? account.id} now`, body: "Running chats move within half a minute.", level: "success", timeout: 4000 });
-      } else {
-        notify({ title: "The account was not switched", body: failed, level: "error" });
-      }
-      cx.notify();
-    });
   }
 
   add(cx) {
@@ -116,7 +100,9 @@ export default class Accounts {
     const from = focusedAgent();
     if (!from) return this.withoutAgent(account, cx);
     const claudeToClaude = account.kind === "claude" && from.program?.key?.includes("claude");
-    const way = claudeToClaude ? how ?? (this.mode === "ask" ? null : this.mode) : "new_pane";
+    let way = claudeToClaude ? how ?? (this.mode === "ask" ? null : this.mode) : "new_pane";
+    // Keep running can't here: ask instead, with why.
+    if (way === "keep" && this.keep?.why) way = null;
     if (!way) {
       this.choosing = this.choosing === account.id ? null : account.id;
       cx.notify();
@@ -129,9 +115,12 @@ export default class Accounts {
       const failed = way === "keep" ? await keepRunningOn(account, from) : way === "restart" ? await restartOn(account) : await handOff(account);
       this.busy = null;
       setShared("orcha.fuelRev", Date.now());
+      // The switch cleared the account's cached fuel: read it again for FUEL.
+      if (!failed) refreshFuel().then(() => setShared("orcha.fuelRev", Date.now()));
       if (failed) notify({ title: "The chat did not move", body: failed, level: "error" });
       else {
-        const body = way === "keep" ? "It keeps running; Claude picks up the sign-in within half a minute." : way === "restart" ? "Same pane, restarted on the account." : "A new agent opens beside the old one and sums up first.";
+        const moved = this.keep?.others ? `This chat and ${this.keep.others} more on the same folder` : "This chat";
+        const body = way === "keep" ? `${moved} keep running, borrowing its sign-in (FUEL says BORROWED). Claude picks it up within half a minute.` : way === "restart" ? "Only this chat: same pane, restarted on the account." : "A new agent opens beside the old one and sums up first.";
         notify({ title: `The chat moves to ${account.label ?? account.id}`, body, level: "success", timeout: 5000 });
         this.close();
       }
@@ -139,15 +128,14 @@ export default class Accounts {
     });
   }
 
-  // No agent in front: Claude chats use the account from now on; another
-  // kind opens in a new tab.
+  // No agent in front: a new chat on the account, in a new tab. The default
+  // account stays as it is (Settings › Accounts).
   withoutAgent(account, cx) {
-    if (account.kind !== "claude") {
-      const argv = { codex: ["codex"], cursor: ["cursor-agent"] }[account.kind];
-      if (argv) run("tab.new", { argv });
-      return this.close();
-    }
-    return this.use(account, cx);
+    cx.spawn(async () => {
+      const failed = await startOn(account);
+      if (failed) notify({ title: "The chat did not start", body: failed, level: "error" });
+      else this.close();
+    });
   }
 
   refresh(cx) {
@@ -187,9 +175,14 @@ export default class Accounts {
           .pt(4)
           .items_center()
           .child(div().text_size(11.5).text_color(k.muted).child("Move this chat:"))
-          .child(button(k, `keep-${a.id}`, "KEEP RUNNING", (_e, cx) => this.switchTo(a, "keep", cx), { small: true, primary: true }))
-          .child(button(k, `restart-${a.id}`, "RESTART", (_e, cx) => this.switchTo(a, "restart", cx), { small: true }))
+          .when(!this.keep?.why, (el) => el.child(button(k, `keep-${a.id}`, this.keep?.others ? `KEEP RUNNING · ${this.keep.others + 1} CHATS` : "KEEP RUNNING", (_e, cx) => this.switchTo(a, "keep", cx), { small: true, primary: true })))
+          .child(button(k, `restart-${a.id}`, "RESTART", (_e, cx) => this.switchTo(a, "restart", cx), { small: true, primary: Boolean(this.keep?.why) }))
           .child(button(k, `pane-${a.id}`, "NEW PANE", (_e, cx) => this.switchTo(a, "new_pane", cx), { small: true }))
+      : null;
+    const keepNote =
+      this.choosing !== a.id ? null
+      : this.keep?.why ? div().text_size(11).text_color(k.dim).child(`No keep running: ${this.keep.why}`)
+      : this.keep?.others ? div().text_size(11).text_color(k.dim).child(`Keep running moves the ${this.keep.others + 1} chats on this folder together, no restart. Restart moves only this one.`)
       : null;
     const body = h_flex()
       .id(`account-${a.id}`)
@@ -211,8 +204,10 @@ export default class Accounts {
       .when(inUse, (el) => el.child(div().absolute().top(0).left(0).w(5).h_full().bg(k.yellow)))
       .child(chip(k, (a.kind ?? "agent").toUpperCase(), kindColor).border(1.5).border_color(k.line))
       .child(
+        // min_w(0): long notes wrap and gauges fit instead of running out of the card.
         v_flex()
           .flex_1()
+          .min_w(0)
           .gap(4)
           .child(
             h_flex()
@@ -224,7 +219,8 @@ export default class Accounts {
           .when(Boolean(a.email), (el) => el.child(div().text_size(11.5).text_color(k.dim).child(a.email)))
           .when(Boolean(a.limits.note), (el) => el.child(div().text_size(11).text_color(k.dim).child(a.limits.note)))
           .children(gauges.length ? gauges : [div().text_size(11.5).text_color(a.limits.error ? readable(k, k.red) : k.dim).child(a.limits.error ?? "no fuel read yet: sign in, then refresh")])
-          .when(Boolean(choices), (el) => el.child(choices)),
+          .when(Boolean(choices), (el) => el.child(choices))
+          .when(Boolean(keepNote), (el) => el.child(keepNote)),
       )
       .child(action);
     return body;
@@ -324,7 +320,7 @@ export default class Accounts {
           .border_color(k.line)
           .child(icon("fuel", 18, k.ink))
           .child(div().font_black().text_size(14).text_color(k.ink).child("ACCOUNTS"))
-          .child(div().flex_1().truncate().text_size(12).text_color(k.muted).child(focusedAgent() ? "switch moves the chat in front of you" : "click into an agent to move its chat"))
+          .child(div().flex_1().truncate().text_size(12).text_color(k.muted).child(focusedAgent() ? "switch moves the chat in front of you" : "switch starts a new chat on the account"))
           .child(
             div()
               .id("accounts-close")
