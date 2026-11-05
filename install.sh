@@ -14,6 +14,12 @@
 # left alone.
 set -eu
 
+case "$(uname -s)" in
+  MINGW* | MSYS* | CYGWIN*)
+    echo "Orcherd doesn't run on Windows yet: Herdr does, the whale doesn't. https://github.com/trungkien1208/orcherd#-windows" >&2
+    exit 1 ;;
+esac
+
 REPO="trungkien1208/orcherd"
 src=$(cd "$(dirname "$0")" 2>/dev/null && pwd || true)
 fetched=

@@ -12,6 +12,12 @@
 
 ## Install 🚀
 
+Pick your fighter: 🍎 [macOS](#-macos) · 🪟 [Windows](#-windows)
+
+### 🍎 macOS
+
+Apple Silicon only. Intel Mac? The goat doesn't do Intel. Neither do we. 🫠
+
 **Step 1.** Summon the goat 🐐 (skip if Herdr is already in your house):
 
 ```sh
@@ -31,5 +37,23 @@ curl -fsSL https://raw.githubusercontent.com/trungkien1208/orcherd/HEAD/install.
 <p align="center"><img src="docs/layout.png" alt="Herdr's layout picker with orcha selected" width="70%" /></p>
 
 **Step 5.** There is no step 5. Go ship something. 🫡
+
+### 🪟 Windows
+
+Bad news, delivered with love: **the whale can't swim here yet.** 🐋🚫
+
+The goat runs on Windows just fine. The whale is a different animal: it breathes `sh`, `python3`, `ps` and `lsof`, and keeps your accounts in the macOS Keychain. Install it on Windows and you get a very pretty cockpit with empty seats: no sidebar, no FILES, no FIND, no FUEL. So we won't pretend, and we won't hand you an installer that lies.
+
+What you can do today:
+
+**Step 1.** Get the goat anyway 🐐 (it's a great terminal app on its own). In PowerShell, x64 only:
+
+```powershell
+powershell -c "irm https://releases.herdr.dev/app/install.ps1 | iex"
+```
+
+**Step 2.** Open **Herdr** from the Start menu. Its command palette is `Ctrl+Shift+P`, not `⌘⇧P`. You're on Windows, you knew that.
+
+**Step 3.** Want the whale on Windows? [Open an issue](https://github.com/trungkien1208/orcherd/issues) or 👍 one that's there. Loud demand moves whales. Watch **Releases** to hear when it lands.
 
 <sub>New: import projects from Cursor, Claude and Codex, ⌘F inside files, Codex and Cursor accounts, updates from the header · Before: worktrees in one card like Orca, dev servers with their ports, agents back after a crash, drag to reorder · Fuel and accounts come from the terminal [orcha](https://github.com/trungkien1208/orcha) · update = the pink 🐋 pill in the header (or Settings › 🐋 orcha), or run step 2 again · nerd stuff nobody reads: [click here 🥱](docs/BORING.md) · Apache-2.0 · the goat is Herdr's, the whale is ours 🍵</sub>
