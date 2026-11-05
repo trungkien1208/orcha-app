@@ -98,4 +98,4 @@ update(os.path.join(home, "settings.json"), colors)
 PY
 command -v herdr-app >/dev/null 2>&1 || [ -x "$HOME/.local/bin/herdr-app" ] ||
   echo "Herdr is not installed yet: curl -fsSL https://releases.herdr.dev/app/install.sh | sh"
-echo "orcha installed into $dest. In Herdr: command palette (Cmd+Shift+P) → layout.switch → orcha"
+echo "Orcherd installed into $dest. Open the Herdr app, then in its window: Cmd+Shift+P → layout.switch → orcha"

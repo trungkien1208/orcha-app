@@ -8,7 +8,7 @@ import { hc, run, theme, themes, fonts, updates, telemetry, settings, layouts, s
 import { RULES, SKILLS } from "./catalog.js";
 import { fuelGauge, tokens, projectTile, raised, chip } from "./ui.js";
 import { VERSION, REPO, updateInfo, available, checkUpdate, runUpdate } from "./version.js";
-import { readAccounts, makeDefault, refreshFuel, addAccount, signIn, ACCOUNT_KINDS, readHandoff, writeHandoff, HANDOFF_DEFAULTS } from "./accounts-data.js";
+import { readAccounts, tokenState, needsSignIn, makeDefault, refreshFuel, addAccount, signIn, ACCOUNT_KINDS, readHandoff, writeHandoff, HANDOFF_DEFAULTS } from "./accounts-data.js";
 
 // Copies skill folders from a GitHub repo's tarball: no Node needed. A skill
 // is the folder whose SKILL.md says `name: <skill>`, else a folder so named.
@@ -1154,7 +1154,7 @@ export default class Settings {
         .border(2.5)
         .border_color(k.line)
         .bg(k.card)
-        .child(h_flex().gap(10).items_center().child(chip(k, "🐋 ORCHA", k.pink).h(24).px(9).text_size(12.5).border(2).border_color(k.line)).child(div().text_size(22).font_black().text_color(k.ink).child(`Orcherd ${VERSION}`)))
+        .child(h_flex().gap(10).items_center().child(chip(k, "🐐🐋 ORCHERD", k.pink).h(24).px(9).text_size(12.5).border(2).border_color(k.line)).child(div().text_size(22).font_black().text_color(k.ink).child(`Orcherd ${VERSION}`)))
         .child(div().pt(4).text_size(14).font_bold().text_color(k.ink).child("Herdr's window 🪟 + orcha's brain 🧠 = ORCHERD."))
         .child(div().text_size(12.5).text_color(k.muted).child("A plugin. Not a fork. Absolutely not normal.")),
       4,
@@ -1276,8 +1276,9 @@ export default class Settings {
     for (const a of this.orcha.accounts ?? []) {
       const inUse = a.kind === "claude" && a.id === this.orcha.active;
       const gauges = [fuelGauge(k, "5H", a.limits.session), fuelGauge(k, "WEEK", a.limits.weekly), fuelGauge(k, "MONTH", a.limits.monthly)].filter(Boolean);
+      const token = tokenState(a);
       const control =
-        !gauges.length
+        needsSignIn(a, gauges)
           ? this.button(t, `acc-sign-${a.id}`, "Sign in", () => { closeOverlay(props()?.overlay); signIn(a.id); })
           : a.kind !== "claude"
           ? div()
@@ -1297,7 +1298,7 @@ export default class Settings {
             h_flex()
               .gap(12)
               .items_center()
-              .child(v_flex().flex_1().min_w(0).child(div().text_size(14).text_color(t.foreground).child(a.label ?? a.id)).child(div().text_size(12.5).text_color(t.dim).child(a.email ?? a.limits.note ?? "")))
+              .child(v_flex().flex_1().min_w(0).child(div().text_size(14).text_color(t.foreground).child(a.label ?? a.id)).child(div().text_size(12.5).text_color(t.dim).child(a.email ?? a.limits.note ?? "")).when(Boolean(token), (el) => el.child(div().text_size(12).text_color(token.signIn ? t.blocked : t.dim).child(token.text))))
               .child(control),
           )
           .children(gauges),

@@ -40,10 +40,35 @@ export async function readAccounts() {
   const main = (await readTextFile(DEFAULT_FILE()))?.trim() || active;
   const list = [];
   for (const account of config?.accounts ?? []) {
-    list.push({ ...account, limits: (await readJson(`${home()}/.cache/orcha/limits/${account.id}.json`)) ?? {} });
+    const cache = `${home()}/.cache/orcha/limits/${account.id}`;
+    list.push({ ...account, limits: (await readJson(`${cache}.json`)) ?? {}, token: await readJson(`${cache}.token.json`) });
   }
   return { list, active, main };
 }
+
+const span = (ms) => {
+  const m = Math.max(1, Math.round(ms / 60000));
+  if (m < 60) return `${m}m`;
+  const h = Math.floor(m / 60);
+  return h < 48 ? `${h}h ${m % 60}m` : `${Math.floor(h / 24)}d ${h % 24}h`;
+};
+
+/** A Claude account's sign-in as limits.py last saw it (its .token.json):
+ *  { signIn, idle, text }, or null when not known (not Claude, not read yet).
+ *  The access token runs out every few hours and Claude renews it with the
+ *  refresh token on the next chat, so only a missing sign-in asks to sign in. */
+export function tokenState(a) {
+  const tk = a.kind === "claude" ? a.token : null;
+  if (!tk) return null;
+  if (!tk.refresh) return { signIn: true, idle: false, text: "🔑 not signed in" };
+  const left = tk.expires - Date.now();
+  return left > 0
+    ? { signIn: false, idle: false, text: `🔑 token good for ${span(left)} · renews itself` }
+    : { signIn: false, idle: true, text: `🔑 token ran out ${span(-left)} ago · renews on the next chat` };
+}
+
+/** Whether to offer SIGN IN: the sign-in is missing, or (no token known) no fuel could be read. */
+export const needsSignIn = (a, gauges) => tokenState(a)?.signIn ?? !gauges.length;
 
 /** Puts `id` in the main folder: every chat there moves to it within half a
  *  minute, without a restart. Null, or why it failed. */

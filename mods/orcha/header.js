@@ -1,5 +1,5 @@
 // The header, one row over the whole window (SPEC §2 "Header"): the raised
-// ORCHA chip, then counts as colored pills (projects, running, needs you),
+// 🐐🐋 ORCHERD chip, then counts as colored pills (projects, running, needs you),
 // a search box in the middle that opens FIND, and square buttons for the
 // command palette, ACCOUNTS and settings. macOS keeps its window buttons at the left, so it
 // leaves them room. Dragging it moves the window.
@@ -128,7 +128,7 @@ export default class Header {
       .bg(k.paper)
       .border_b(2.5)
       .border_color(k.line)
-      .child(raised(k, chip(k, "🐋 ORCHA", k.pink).h(26).px(10).text_size(13).border(2).border_color(k.line), 2, 5))
+      .child(raised(k, chip(k, "🐐🐋 ORCHERD", k.pink).h(26).px(10).text_size(13).border(2).border_color(k.line), 2, 5))
       .child(
         h_flex()
           .gap(6)

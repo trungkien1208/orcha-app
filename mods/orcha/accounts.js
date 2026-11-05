@@ -16,7 +16,7 @@
 import { div } from "gpui-kit";
 import { v_flex, h_flex, InputState, Input } from "gpui-base";
 import { props, closeOverlay, notify, setShared } from "herdr";
-import { readAccounts, refreshFuel, addAccount, signIn, handOff, restartOn, keepRunningOn, keepInfo, startOn, claudeAccountOf, readHandoff, focusedAgent } from "./accounts-data.js";
+import { readAccounts, tokenState, needsSignIn, refreshFuel, addAccount, signIn, handOff, restartOn, keepRunningOn, keepInfo, startOn, claudeAccountOf, readHandoff, focusedAgent } from "./accounts-data.js";
 import { tokens, raised, chip, button, icon, fuelGauge, fuelLeft, readable } from "./ui.js";
 
 export default class Accounts {
@@ -161,10 +161,10 @@ export default class Accounts {
       fuelGauge(k, "MONTH", a.limits.monthly),
     ].filter(Boolean);
     const busy = this.busy === a.id;
-    const needsSignIn = !gauges.length;
+    const token = tokenState(a);
     const action = busy
       ? div().text_size(11.5).text_color(k.dim).child("moving…")
-      : needsSignIn
+      : needsSignIn(a, gauges)
         ? button(k, `sign-${a.id}`, "SIGN IN", () => { signIn(a.id); this.close(); }, { small: true, primary: true })
         : inUse
           ? chip(k, "IN USE", k.ink, k.paper)
@@ -218,7 +218,8 @@ export default class Accounts {
           )
           .when(Boolean(a.email), (el) => el.child(div().text_size(11.5).text_color(k.dim).child(a.email)))
           .when(Boolean(a.limits.note), (el) => el.child(div().text_size(11).text_color(k.dim).child(a.limits.note)))
-          .children(gauges.length ? gauges : [div().text_size(11.5).text_color(a.limits.error ? readable(k, k.red) : k.dim).child(a.limits.error ?? "no fuel read yet: sign in, then refresh")])
+          .children(gauges.length || token?.idle ? gauges : [div().text_size(11.5).text_color(a.limits.error ? readable(k, k.red) : k.dim).child(a.limits.error ?? "no fuel read yet: sign in, then refresh")])
+          .when(Boolean(token), (el) => el.child(div().text_size(11).text_color(token.signIn ? readable(k, k.red) : k.dim).child(token.text)))
           .when(Boolean(choices), (el) => el.child(choices))
           .when(Boolean(keepNote), (el) => el.child(keepNote)),
       )
