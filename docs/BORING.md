@@ -80,6 +80,7 @@ rs = "editor:zed {path}:$L"
 - **Herdr looks the same.** Still on another layout: `⌘⇧P` → `layout.switch` → **orcha**.
 - **FUEL and ACCOUNTS are empty.** Install the terminal [orcha](https://github.com/trungkien1208/orcha), then add an account.
 - **Signed in, but FUEL says the sign-in expired.** Update the terminal orcha (older ones read the old sign-in), then sign in once more.
+- **Signed in, but FUEL asks to sign in, or ACCOUNTS has a 🔑 box.** Claude couldn't write the macOS Keychain and kept its sign-in in `~/.claude/.credentials.json`. Update the terminal orcha: fuel reads the file too. To switch accounts again, use the box's button: **MOVE TO KEYCHAIN**, **UNLOCK** (your Mac's password), or **KEYCHAIN ACCESS** (Settings › Reset Default Keychain, usually after the Mac's password changed; then SIGN IN again).
 - **Herdr says "out of memory" after updates.** Quit it (`⌘Q`) and open it again. Your agents keep running.
 - **A panel is blank.** `herdr-app check ~/.config/herdr-app/mods/orcha` says what broke. [Open an issue](https://github.com/trungkien1208/orcherd/issues) with it.
 - **Two Claude chats in one folder show the same model.** Known: they share the folder's newest conversation.

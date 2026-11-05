@@ -10,13 +10,17 @@
 // An account without fuel to read offers SIGN IN. + ADD ACCOUNT adds a Claude
 // account and opens its sign-in.
 //
+// When Claude's sign-in can't go in the macOS Keychain (locked, broken, kept
+// in a .credentials.json), a box on top says so with the one button that
+// fixes it; fuel still reads, but KEEP RUNNING waits for the Keychain.
+//
 // Read from orcha's own files (config.json, the limits cache): opening the
 // popup asks nothing of the network. `r` refreshes through `limits.py json`.
 
 import { div } from "gpui-kit";
 import { v_flex, h_flex, InputState, Input } from "gpui-base";
 import { props, closeOverlay, notify, setShared } from "herdr";
-import { readAccounts, tokenState, needsSignIn, refreshFuel, addAccount, signIn, handOff, restartOn, keepRunningOn, keepInfo, startOn, claudeAccountOf, readHandoff, focusedAgent } from "./accounts-data.js";
+import { readAccounts, tokenState, needsSignIn, refreshFuel, addAccount, signIn, handOff, restartOn, keepRunningOn, keepInfo, startOn, claudeAccountOf, readHandoff, focusedAgent, readKeychain, keychainBlocks, moveToKeychain, unlockKeychain, openKeychainAccess } from "./accounts-data.js";
 import { tokens, raised, chip, button, icon, fuelGauge, fuelLeft, readable } from "./ui.js";
 
 export default class Accounts {
@@ -27,6 +31,8 @@ export default class Accounts {
     this.choosing = null; // account id whose hand-off choices show
     this.adding = false;
     this.mode = "ask";
+    this.keychain = null;
+    this.confirmMove = false;
     this.nameInput = InputState.new({ placeholder: "name, like personal or work" });
     this.nameInput.on("submit", (_e, cx) => this.add(cx));
     this.handle = cx.focus_handle();
@@ -50,6 +56,10 @@ export default class Accounts {
       else this.using = list.find((a) => key.includes(a.kind))?.id ?? null;
       // What keep running would do: why not, or how many other chats move with it.
       this.keep = from && key.includes("claude") ? await keepInfo(from) : { why: null, others: 0 };
+      // Keep running writes the Keychain: it waits for it.
+      if (list.some((a) => a.kind === "claude")) this.keychain = await readKeychain();
+      const blocked = keychainBlocks(this.keychain);
+      if (blocked && !this.keep.why) this.keep = { ...this.keep, why: blocked };
       const current = list.findIndex((a) => a.id === this.using);
       if (current >= 0 && this.at === 0) this.at = current;
       cx.notify();
@@ -227,6 +237,66 @@ export default class Accounts {
     return body;
   }
 
+  // The Keychain, when it is in the way: what happened and the one way out.
+  keychainBox(k) {
+    const kc = this.keychain;
+    if (!kc || kc.state === "ok") return null;
+    const move = (_e, cx) => {
+      if (!this.confirmMove) {
+        this.confirmMove = true;
+        cx.notify();
+        return;
+      }
+      this.confirmMove = false;
+      this.busy = "keychain";
+      cx.notify();
+      cx.spawn(async (cx) => {
+        const failed = await moveToKeychain();
+        this.busy = null;
+        if (failed) notify({ title: "The sign-in stayed in the file", body: failed, level: "error" });
+        else notify({ title: "The sign-in is in the Keychain", body: "Switching works again.", level: "success", timeout: 5000 });
+        this.load(cx);
+      });
+    };
+    const box = {
+      "file-only": {
+        title: "Claude's sign-in is in a file, not the Keychain",
+        body: `Fuel reads it fine. Moving a chat to another account needs it in the Keychain. Moves ${kc.files?.length === 1 ? kc.files[0].replace(/^\/Users\/[^/]+/, "~") : `${kc.files?.length ?? 0} files`} in, then deletes the file.`,
+        action: this.busy === "keychain" ? div().text_size(11.5).text_color(k.dim).child("moving…") : button(k, "keychain-move", this.confirmMove ? "SURE? MOVE" : "MOVE TO KEYCHAIN", move, { small: true, primary: true }),
+      },
+      locked: {
+        title: "The macOS Keychain is locked",
+        body: "Claude can't save its sign-in there, and switching accounts can't either. Unlock it with your Mac's password, then press r.",
+        action: button(k, "keychain-unlock", "UNLOCK", () => { unlockKeychain(); this.close(); }, { small: true, primary: true }),
+      },
+      broken: {
+        title: "The macOS Keychain can't be written",
+        body: "Usually the Mac's password changed and the login keychain kept the old one. In Keychain Access: Settings › Reset Default Keychain, then SIGN IN again here.",
+        action: button(k, "keychain-open", "KEYCHAIN ACCESS", () => openKeychainAccess(), { small: true, primary: true }),
+      },
+    }[kc.state];
+    if (!box) return null;
+    return h_flex()
+      .flex_none()
+      .gap(10)
+      .p(10)
+      .items_start()
+      .rounded(6)
+      .border(2.5)
+      .border_color(k.line)
+      .bg(k.yellow + "33")
+      .child(
+        v_flex()
+          .flex_1()
+          .min_w(0)
+          .gap(3)
+          .child(div().font_black().text_size(12.5).text_color(k.ink).child(`🔑 ${box.title}`))
+          .child(div().text_size(11.5).text_color(k.muted).child(box.body))
+          .when(Boolean(kc.why) && kc.state !== "file-only", (el) => el.child(div().text_size(11).text_color(k.dim).child(`macOS says: ${kc.why}`))),
+      )
+      .child(box.action);
+  }
+
   // + ADD ACCOUNT, then a name box and ADD once clicked.
   addRow(k) {
     if (!this.adding) {
@@ -297,6 +367,7 @@ export default class Accounts {
   render(cx) {
     const k = tokens();
     const best = this.best();
+    const kcBox = this.keychainBox(k);
     const keyHint = (key, what) => h_flex().gap(4).items_center().child(div().font_black().text_color(k.ink).child(key)).child(div().text_color(k.muted).child(what));
     const box = v_flex()
       .id("orcha-accounts")
@@ -343,6 +414,7 @@ export default class Accounts {
           .p(12)
           .gap(8)
           .overflow_y_scrollbar()
+          .when(Boolean(kcBox), (el) => el.child(kcBox))
           .children(this.list.length ? this.list.map((a, i) => this.row(k, a, i, best, cx)) : [div().p(12).text_color(k.dim).child("No accounts yet. Add your first one below.")])
           .child(this.addRow(k)),
       )

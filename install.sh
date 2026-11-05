@@ -1,6 +1,6 @@
 #!/bin/sh
 # orcha for the Herdr desktop app: copies orcha's layout, themes and mods
-# into Herdr's config folder. Herdr picks them up live.
+# into Herdr's config folder. An open Herdr restarts once after.
 #
 #   curl -fsSL https://raw.githubusercontent.com/trungkien1208/orcherd/HEAD/install.sh | sh
 #   sh install.sh          (from a clone)
@@ -104,4 +104,16 @@ update(os.path.join(home, "settings.json"), colors)
 PY
 command -v herdr-app >/dev/null 2>&1 || [ -x "$HOME/.local/bin/herdr-app" ] ||
   echo "Herdr is not installed yet: curl -fsSL https://releases.herdr.dev/app/install.sh | sh"
-echo "Orcherd installed into $dest. Open the Herdr app, then in its window: Cmd+Shift+P → layout.switch → orcha"
+echo "Orcherd installed into $dest."
+# Herdr reloads mods live, but a whole install at once is more than it
+# picks up cleanly (and it refuses reloads after many in one run): an open
+# Herdr restarts once. Its agents keep running.
+if pgrep -f "Herdr.app/Contents/MacOS/Herdr" >/dev/null 2>&1 || pgrep -x herdr-app >/dev/null 2>&1; then
+  echo ""
+  echo "  >>> Restart Herdr now: quit it (Cmd+Q) and open it again. <<<"
+  echo "  So every part of Orcherd loads fresh. Your agents keep running."
+  echo ""
+  echo "Then, the first time: Cmd+Shift+P → layout.switch → orcha"
+else
+  echo "Open the Herdr app, then the first time in its window: Cmd+Shift+P → layout.switch → orcha"
+fi

@@ -7,7 +7,7 @@
 import { exec, shared, setShared, notify } from "herdr";
 
 /** Bumped at every release, before the tag. */
-export const VERSION = "0.5.2";
+export const VERSION = "0.5.3";
 export const REPO = "trungkien1208/orcherd";
 const EVERY = 6 * 60 * 60 * 1000;
 
@@ -65,7 +65,7 @@ export function landed() {
   if (!u) return;
   if (!newer(u.to, VERSION)) {
     setShared("orcha.updating", null);
-    notify({ title: `🐋 orcha ${VERSION} has landed`, body: "Fresh whale, same ocean. Keys acting weird? ⌘Q and reopen Herdr once.", level: "success", timeout: 8000 });
+    notify({ title: `🐋 orcha ${VERSION} has landed`, body: "Restart Herdr once to finish: ⌘Q, then open it again so every part loads fresh. Your agents keep running.", level: "success", timeout: 15000 });
   } else if (Date.now() - u.at > 10 * 60 * 1000) {
     setShared("orcha.updating", null);
   }

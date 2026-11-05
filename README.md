@@ -30,7 +30,7 @@ curl -fsSL https://releases.herdr.dev/app/install.sh | sh
 curl -fsSL https://raw.githubusercontent.com/trungkien1208/orcherd/HEAD/install.sh | sh
 ```
 
-**Step 3.** Open the goat: launch **Herdr** (Spotlight `⌘Space` → `Herdr`, or `~/Applications/Herdr.app`). Already open? It picks Orcherd up live.
+**Step 3.** Open the goat: launch **Herdr** (Spotlight `⌘Space` → `Herdr`, or `~/Applications/Herdr.app`). Already open? Restart it: `⌘Q`, then open it again so every part of Orcherd loads fresh. Your agents keep running.
 
 **Step 4.** Tell the goat who's boss: in Herdr's window, `⌘⇧P` → `layout.switch` → **orcha**. Or Settings › Look, click the one with the ✓ energy:
 

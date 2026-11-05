@@ -8,20 +8,22 @@
 
 import { div } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
-import { focused, panes, spaces, exec, readTextFile, home, shared, setShared, openOverlay } from "herdr";
+import { focused, panes, spaces, exec, run, readTextFile, home, shared, setShared, openOverlay } from "herdr";
 import { tokens, button, icon, fuelGauge, readable, agentFacts, chip } from "./ui.js";
 import { showSide } from "./sidetabs.js";
 import HandoffWatch from "./handoff-watch.js";
 import { refreshFuel, claudeAccountOf } from "./accounts-data.js";
 
-// One call: branch line, changed files, totals, last commit, worktree count.
+// One call: branch line, changed files, totals, last commit, the checkout's
+// top folder and every worktree of the repo.
 const GIT_SCRIPT = [
   'cd "$1" 2>/dev/null && git rev-parse --is-inside-work-tree >/dev/null 2>&1 || exit 0',
   'echo "B $(git status --porcelain=v1 -b 2>/dev/null | head -n 1)"',
   "git status --porcelain=v1 2>/dev/null | head -n 30 | sed 's/^/F /'",
   'echo "S $(git diff --shortstat HEAD 2>/dev/null)"',
   "echo \"L $(git log -1 --format='%s%x09%cr' 2>/dev/null)\"",
-  "echo \"W $(git worktree list --porcelain 2>/dev/null | grep -c '^worktree ')\"",
+  'echo "T $(git rev-parse --show-toplevel 2>/dev/null)"',
+  "git worktree list --porcelain 2>/dev/null | sed 's/^/W /'",
 ].join("\n");
 
 // "## main...origin/main [ahead 2, behind 1]" → { name, ahead, behind }
@@ -34,7 +36,7 @@ function parseBranch(line) {
 }
 
 function parseGit(out) {
-  const git = { branch: null, files: [], added: 0, removed: 0, last: null, worktrees: 0 };
+  const git = { branch: null, files: [], added: 0, removed: 0, last: null, top: null, worktrees: [] };
   for (const line of out.split("\n")) {
     const kind = line.slice(0, 2);
     const rest = line.slice(2);
@@ -46,8 +48,21 @@ function parseGit(out) {
     } else if (kind === "L " && rest.trim()) {
       const [subject, age] = rest.split("\t");
       git.last = { subject, age };
-    } else if (kind === "W ") git.worktrees = Number(rest.trim() || 0);
+    } else if (kind === "T ") git.top = rest.trim() || null;
+    else if (kind === "W ") {
+      // --porcelain: "worktree <path>" starts one, then branch/detached/bare/prunable.
+      const [word, ...more] = rest.split(" ");
+      const value = more.join(" ");
+      const tree = git.worktrees.at(-1);
+      if (word === "worktree") git.worktrees.push({ path: value, branch: null, detached: false, bare: false, prunable: false });
+      else if (!tree) continue;
+      else if (word === "branch") tree.branch = value.replace(/^refs\/heads\//, "");
+      else if (word === "detached") tree.detached = true;
+      else if (word === "bare") tree.bare = true;
+      else if (word === "prunable") tree.prunable = true;
+    }
   }
+  git.worktrees = git.worktrees.filter((w) => !w.bare);
   return git;
 }
 
@@ -66,7 +81,7 @@ export default class Panel {
     this.git = null;
     this.fuel = null;
     this.history = false;
-    this.worktrees = false;
+    this.worktrees = true;
     this.readGit(cx);
     this.readFuel(cx);
     cx.timer.every(3000, (cx) => this.readGit(cx));
@@ -155,6 +170,31 @@ export default class Panel {
     cx.spawn(async (cx) => {
       await refreshFuel();
       this.readFuel(cx);
+    });
+  }
+
+  // One line per checkout of the repo: its folder's name, its branch, HERE
+  // for the one you are in. A click shows its project, opening it if needed.
+  worktreeRows(t, git) {
+    if (git.worktrees.length < 2) return [div().text_size(12).text_color(t.dim).child("only this checkout")];
+    const open = (path) => {
+      const space = spaces().find((s) => s.folder === path);
+      if (space) run("space.select", { id: space.id });
+      else run("space.new", { folder: path, machine: spaces().find((s) => s.active)?.machine ?? "" });
+    };
+    return git.worktrees.map((w, n) => {
+      const here = w.path === git.top;
+      return h_flex()
+        .id(`worktree-${w.path}`)
+        .gap(8)
+        .items_center()
+        .rounded(3)
+        .text_size(12)
+        .when(!here && !w.prunable, (el) => el.cursor_pointer().hover((s) => s.bg(t.hover)).on_click(() => open(w.path)))
+        .child(div().flex_none().font_bold().text_color(w.prunable ? t.dim : t.ink).child(w.path.split("/").pop() || w.path))
+        .child(div().flex_1().truncate().text_color(t.dim).child(w.prunable ? "folder gone" : w.branch ?? (w.detached ? "detached" : "")))
+        .when(n === 0, (el) => el.child(div().flex_none().text_size(10).font_black().text_color(t.dim).child("MAIN")))
+        .when(here, (el) => el.child(chip(t, "HERE", t.yellow).border(1.5).border_color(t.line)));
     });
   }
 
@@ -282,7 +322,7 @@ export default class Panel {
         );
       }
       sections.push(
-        this.section(t, "git-fork", `WORKTREES · ${git.worktrees}`, [div().text_size(12).text_color(t.muted).child(git.worktrees > 1 ? `${git.worktrees} checkouts of this repo` : "only this checkout")], {
+        this.section(t, "git-fork", `WORKTREES · ${git.worktrees.length}`, this.worktreeRows(t, git), {
           fold: { open: this.worktrees, toggle: () => (this.worktrees = !this.worktrees) },
         }),
       );

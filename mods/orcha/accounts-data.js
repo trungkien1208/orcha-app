@@ -90,6 +90,46 @@ export async function makeDefault(id) {
   return null;
 }
 
+// The Keychain ---------------------------------------------------------
+// Claude keeps its sign-in in the macOS Keychain, else (locked, broken, a
+// managed Mac) in a .credentials.json in its folder. Fuel reads either;
+// moving a chat to another account writes the Keychain, so it needs it.
+
+/** { state: ok | file-only | locked | broken, why, files }, or null when
+ *  limits.py could not say (an older orcha: then nothing is shown). */
+export async function readKeychain() {
+  const r = await exec("python3", ["-I", LIMITS(), "keychain"]);
+  try {
+    return r.code === 0 ? JSON.parse(r.stdout) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Why the Keychain stops a chat from moving to another account, or null. */
+export function keychainBlocks(kc) {
+  if (!kc || kc.state === "ok") return null;
+  if (kc.state === "file-only") return "Claude keeps its sign-in in a file, not the Keychain, so the chat would not see the switch. Move it to the Keychain first (the top of ACCOUNTS).";
+  return "The macOS Keychain can't be written, so the sign-in can't move. The top of ACCOUNTS shows how to fix it.";
+}
+
+/** The sign-ins Claude left in .credentials.json go into the Keychain. Null, or why not. */
+export async function moveToKeychain() {
+  const r = await exec("python3", ["-I", LIMITS(), "keychain-move"]);
+  return r.code === 0 ? null : lastLine(r, "limits.py failed");
+}
+
+/** A pane beside the focused one asks for the Mac's password and unlocks the Keychain. */
+export function unlockKeychain() {
+  const script = 'security unlock-keychain && echo "\nUnlocked. Back in ACCOUNTS, press r." || echo "\nNot unlocked."; printf "Enter closes this pane. "; read -r _';
+  run("pane.split", { direction: "right", argv: ["sh", "-c", script] });
+}
+
+/** Keychain Access, where a broken login keychain is reset. */
+export function openKeychainAccess() {
+  return exec("open", ["-a", "Keychain Access"]);
+}
+
 /** Reads the accounts' fuel into the cache (network). Accounts read in the
  *  last two minutes are skipped, unless `fresh` (someone asked for it). */
 export async function refreshFuel(fresh = false) {
