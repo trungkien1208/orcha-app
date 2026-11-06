@@ -6,6 +6,7 @@ import { div, svg, image } from "gpui-kit";
 import { v_flex, h_flex, Scrollbar, InputState, Input, TextView } from "gpui-base";
 import { hc, run, theme, themes, fonts, updates, telemetry, settings, layouts, shared, setShared, appHome, readTextFile, writeTextFile, playSound, props, closeOverlay, window, spaces, exec, home, layout, notify } from "herdr";
 import { RULES, SKILLS } from "./catalog.js";
+import { configFile } from "./paths.js";
 import { fuelGauge, tokens, projectTile, raised, chip } from "./ui.js";
 import { VERSION, REPO, updateInfo, available, checkUpdate, runUpdate } from "./version.js";
 import { readAccounts, tokenState, needsSignIn, makeDefault, refreshFuel, addAccount, signIn, ACCOUNT_KINDS, readHandoff, writeHandoff, HANDOFF_DEFAULTS } from "./accounts-data.js";
@@ -46,11 +47,11 @@ const SECTIONS = [
   { id: "privacy", title: "Privacy", icon: "shield" },
 ];
 
-// orcha_rules.rs: one marked block in CLAUDE.md holds the working rules.
-const BLOCK_START = "<!-- orcha:rules start · managed by orcha (Settings › Projects); edit them there -->";
-const BLOCK_START_PREFIX = "<!-- orcha:rules start";
-const BLOCK_END = "<!-- orcha:rules end -->";
-const RULE_MARK = "<!-- orcha:rule ";
+// One marked block in CLAUDE.md holds the working rules (Orcherd's own markers).
+const BLOCK_START = "<!-- orcherd:rules start · managed by Orcherd (Settings › Projects); edit them there -->";
+const BLOCK_START_PREFIX = "<!-- orcherd:rules start";
+const BLOCK_END = "<!-- orcherd:rules end -->";
+const RULE_MARK = "<!-- orcherd:rule ";
 
 function blockSpan(text) {
   const start = text.indexOf(BLOCK_START_PREFIX);
@@ -119,7 +120,7 @@ export default class Settings {
     this.orcha = { project: null, info: null, busy: {}, failed: {}, addKind: "claude", accounts: null, active: null, icons: {} };
     cx.spawn(async (cx) => {
       try {
-        this.orcha.icons = JSON.parse((await readTextFile(`${home()}/.config/orcha/project-icons.json`)) ?? "{}") ?? {};
+        this.orcha.icons = JSON.parse((await readTextFile(configFile("project-icons.json"))) ?? "{}") ?? {};
       } catch {
         this.orcha.icons = {};
       }
@@ -1388,7 +1389,7 @@ export default class Settings {
   }
 
   // orcha: Hand-off ------------------------------------------------------
-  // Shared with orcha in the terminal (config.toml [orcha]).
+  // In Orcherd's config.toml [orcha].
 
   loadHandoff(cx) {
     cx.spawn(async (cx) => {
@@ -1456,7 +1457,7 @@ export default class Settings {
   handoff(t, cx) {
     if (!this.orcha.handoff) {
       this.loadHandoff(cx);
-      return div().text_color(t.dim).child("Reading orcha's settings…");
+      return div().text_color(t.dim).child("Reading settings…");
     }
     const h = this.orcha.handoff;
     const percent = (key, about, title) => {
@@ -1509,8 +1510,7 @@ export default class Settings {
           "Where the checklist goes, inside the project.",
           div().text_size(12.5).text_color(t.foreground).child(h.checklist_file || HANDOFF_DEFAULTS.checklist_file),
         ),
-      )
-      .child(div().pt(10).text_size(12).text_color(t.dim).child("Shared with orcha in the terminal. If both are open, leave “by itself” on in one of them only."));
+      );
   }
 
   // orcha: Layout --------------------------------------------------------

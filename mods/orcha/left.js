@@ -33,6 +33,7 @@ import {
   portPill,
 } from "./ui.js";
 import { readPaneAccounts } from "./accounts-data.js";
+import { configFile } from "./paths.js";
 import { systemOpen } from "./links.js";
 import { menuHeight } from "./menu.js";
 import { ICON_OVERLAY } from "./icon.js";
@@ -162,7 +163,7 @@ export default class Left {
   constructor(cx) {
     this.memory = new Map(); // terminal address → bytes
     this.changed = new Map(); // pane → { status, at }
-    this.icons = {}; // project folder → emoji (orcha's project-icons.json)
+    this.icons = {}; // project folder → emoji (Orcherd's project-icons.json, paths.js)
     this.codex = new Map(); // folder → { size, lines }: the last Codex session read
     this.git = {}; // repo key (repos.js) → { repo, main, top, linked } or null (not git)
     this.asking = new Set(); // repo keys being read
@@ -190,7 +191,7 @@ export default class Left {
   readIcons(cx) {
     cx.spawn(async (cx) => {
       try {
-        const text = await readTextFile(`${home()}/.config/orcha/project-icons.json`);
+        const text = await readTextFile(configFile("project-icons.json"));
         this.icons = text ? JSON.parse(text) : {};
       } catch {
         this.icons = {};

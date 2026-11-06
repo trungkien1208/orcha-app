@@ -3,16 +3,17 @@
 // focused folder's BRANCH, CHANGES, HISTORY and WORKTREES. It also runs the
 // low-fuel watch (handoff-watch.js).
 //
-// Git is read with one shell call every 3 s; FUEL from orcha's limits cache
+// Git is read with one shell call every 3 s; FUEL from Orcherd's limits cache
 // every 30 s. Rendering only draws the last answers.
 
 import { div } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
-import { focused, panes, spaces, exec, run, readTextFile, home, shared, setShared, openOverlay } from "herdr";
+import { focused, panes, spaces, exec, run, readTextFile, home, shared, setShared, openOverlay, notify } from "herdr";
 import { tokens, button, icon, fuelGauge, readable, agentFacts, chip } from "./ui.js";
 import { showSide } from "./sidetabs.js";
 import HandoffWatch from "./handoff-watch.js";
 import { refreshFuel, claudeAccountOf } from "./accounts-data.js";
+import { configFile, cacheFile, script } from "./paths.js";
 
 // One call: branch line, changed files, totals, last commit, the checkout's
 // top folder and every worktree of the repo.
@@ -86,8 +87,8 @@ export default class Panel {
     this.readFuel(cx);
     cx.timer.every(3000, (cx) => this.readGit(cx));
     // Fuel goes stale unless someone asks the plans: once a minute ask them
-    // through orcha's limits.py (it skips accounts read under 2 minutes ago,
-    // as orcha in the terminal does), then read the cache again.
+    // through bin/accounts.py (it skips accounts read under 2 minutes ago),
+    // then read the cache again.
     this.refreshFuel(cx);
     cx.timer.every(60000, (cx) => this.refreshFuel(cx));
     this.watch = new HandoffWatch();
@@ -135,17 +136,18 @@ export default class Panel {
     const f = focused();
     const asked = (this.fuelKey = this.fuelKeyNow());
     cx.spawn(async (cx) => {
-      const config = await readJson(`${home()}/.config/orcha/config.json`);
+      const config = await readJson(configFile("config.json"));
       const accounts = (config?.accounts ?? []).filter((a) => a.kind === kind);
       // The sidebar's read of the pane's account is instant; asking the
       // process takes a few hundred ms, so only when it has none yet.
       const known = kind === "claude" ? agentFacts().accounts?.[f?.terminal] : null;
       const pick = kind === "claude" && f?.terminal ? known?.id ?? (await claudeAccountOf(f.terminal)) : null;
       const file = kind === "claude" ? "claude-active" : "selected-account";
-      const fallback = pick ?? (await readTextFile(`${home()}/.config/orcha/${file}`))?.trim();
-      const account = accounts.find((a) => a.id === fallback) ?? (kind === "claude" ? null : accounts[0]);
+      const fallback = pick ?? (await readTextFile(configFile(file)))?.trim();
+      // None picked yet (a new Mac): the account of the main ~/.claude folder.
+      const account = accounts.find((a) => a.id === fallback) ?? (kind === "claude" ? accounts.find((a) => !a.dir) ?? null : accounts[0]);
       if (!account || asked !== this.fuelKey) return;
-      const limits = await readJson(`${home()}/.cache/orcha/limits/${account.id}.json`);
+      const limits = await readJson(cacheFile(`limits/${account.id}.json`));
       // A switch clears the account's cached fuel: ask for it now, not in a minute.
       if (!limits?.session && !limits?.weekly && !limits?.error && Date.now() - (this.kicked?.[account.id] ?? 0) > 30000) {
         this.kicked = { ...this.kicked, [account.id]: Date.now() };
@@ -278,8 +280,11 @@ export default class Panel {
             .when(b.behind > 0, (el) => el.child(h_flex().gap(3).items_center().child(icon("arrow-down", 12, t.ansi4)).child(div().text_color(t.ansi4).child(`${b.behind} to pull`)))),
         );
       }
-      // ⌘E / ⌘G: the project in the IDE or the Git app (orcha's extras script).
-      const openIn = (app) => exec("sh", ["-c", 'HERDR_ACTIVE_PANE_CWD="$1" "$2" "$3"', "sh", this.folder, `${home()}/.orcha/scripts/open-in.sh`, app]);
+      // ⌘E / ⌘G: the project in the first IDE or Git app on this Mac (bin/open-in.sh).
+      const openIn = (app) =>
+        exec("sh", [script("open-in.sh"), app, this.folder]).then((r) => {
+          if (r.code !== 0) notify({ title: `No ${app === "ide" ? "IDE" : "Git app"} found`, body: r.stderr.trim(), level: "warning", timeout: 6000 });
+        });
       branchRows.push(
         h_flex()
           .gap(6)

@@ -1,12 +1,13 @@
 // PROJECT ICON: pick an emoji for a project (props().target: its id, folder
 // and name). Groups of emoji with words to search them by, and a box to type
-// or paste any other emoji. Saved per folder in orcha's project-icons.json,
-// the same file the terminal orcha reads, so both show the same icon.
+// or paste any other emoji. Saved per folder in Orcherd's project-icons.json
+// (paths.js).
 
 import { div } from "gpui-kit";
 import { v_flex, h_flex, InputState, Input } from "gpui-base";
 import { props, closeOverlay, readTextFile, writeTextFile, home, setShared, notify } from "herdr";
 import { tokens, raised, icon } from "./ui.js";
+import { configFile, makeConfigDir } from "./paths.js";
 
 /** How the picker opens, from a project's tile or its right-click menu. */
 export const ICON_OVERLAY = { kind: "dialog", width: 560, height: 470, frame: "none" };
@@ -59,7 +60,7 @@ const GROUPS = [
   ]],
 ];
 
-const FILE = () => `${home()}/.config/orcha/project-icons.json`;
+const FILE = () => configFile("project-icons.json");
 const PER_ROW = 10;
 
 export default class Icon {
@@ -117,6 +118,7 @@ export default class Icon {
       if (emoji) icons[folder] = emoji;
       else delete icons[folder];
       try {
+        await makeConfigDir();
         await writeTextFile(FILE(), `${JSON.stringify(icons, null, 2)}\n`, before);
         setShared("orcha.iconsRev", Date.now());
       } catch (err) {

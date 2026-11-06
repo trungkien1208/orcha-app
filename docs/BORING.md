@@ -55,7 +55,7 @@ You clicked. Respect. Here's everything nobody reads.
 - **Two accounts in two projects at once?** Yes: open Claude normally in one, and in the other SWITCH with **Restart** or **New pane**.
 - **ADD ACCOUNT** (`a`): name it, sign in in the pane that opens. Chats, settings and skills are shared between accounts.
 - **SIGN IN** shows when orcha can't read an account's fuel, with the reason. `r` asks every account right now.
-- **Settings › Hand-off** puts three marks on the fuel bar: ask the agent for a checklist, offer to switch, switch by itself. Shared with the terminal orcha; turn on "by itself" in only one of them.
+- **Settings › Hand-off** puts three marks on the fuel bar: ask the agent for a checklist, offer to switch, switch by itself. Kept in Orcherd's own `~/.config/orcherd/config.toml`.
 
 
 ## Opening links and files
@@ -64,7 +64,7 @@ A page opens in your browser, a folder in Finder, a picture, PDF or document in 
 
 In a split tab, orcha learns where a pane is when the pointer passes over its title bar; if a right-click finds nothing, select the link first.
 
-Open a file type somewhere else in orcha's `config.toml`:
+Open a file type somewhere else in Orcherd's `~/.config/orcherd/config.toml`:
 
 ```toml
 [orcha.open_with]
@@ -78,9 +78,8 @@ rs = "editor:zed {path}:$L"
 ## Something looks wrong
 
 - **Herdr looks the same.** Still on another layout: `⌘⇧P` → `layout.switch` → **orcha**.
-- **FUEL and ACCOUNTS are empty.** Install the terminal [orcha](https://github.com/trungkien1208/orcha), then add an account.
-- **Signed in, but FUEL says the sign-in expired.** Update the terminal orcha (older ones read the old sign-in), then sign in once more.
-- **Signed in, but FUEL asks to sign in, or ACCOUNTS has a 🔑 box.** Claude couldn't write the macOS Keychain and kept its sign-in in `~/.claude/.credentials.json`. Update the terminal orcha: fuel reads the file too. To switch accounts again, use the box's button: **MOVE TO KEYCHAIN**, **UNLOCK** (your Mac's password), or **KEYCHAIN ACCESS** (Settings › Reset Default Keychain, usually after the Mac's password changed; then SIGN IN again).
+- **FUEL and ACCOUNTS are empty.** Claude, Codex and Cursor show up by themselves once their CLI is installed; press `r` in ACCOUNTS, or add one there. Orcherd needs `python3` (`xcode-select --install`).
+- **Signed in, but FUEL asks to sign in, or ACCOUNTS has a 🔑 box.** Claude couldn't write the macOS Keychain and kept its sign-in in `~/.claude/.credentials.json`. FUEL reads the file too. To switch accounts again, use the box's button: **MOVE TO KEYCHAIN**, **UNLOCK** (your Mac's password), or **KEYCHAIN ACCESS** (Settings › Reset Default Keychain, usually after the Mac's password changed; then SIGN IN again).
 - **Herdr says "out of memory" after updates.** Quit it (`⌘Q`) and open it again. Your agents keep running.
 - **A panel is blank.** `herdr-app check ~/.config/herdr-app/mods/orcha` says what broke. [Open an issue](https://github.com/trungkien1208/orcherd/issues) with it.
 - **Two Claude chats in one folder show the same model.** Known: they share the folder's newest conversation.
@@ -89,10 +88,10 @@ rs = "editor:zed {path}:$L"
 
 ## Uninstall, and where the installer writes
 
-Everything lives in `~/.config/herdr-app` (or `$HERDR_APP_HOME`): `layouts/orcha.json`, `themes/orcha-*.json`, `mods/orcha/`, orcha's keys in `keys.json` (only for the orcha layout) and the Matcha theme in `settings.json` if you had none. Herdr's own files and yours are left alone.
+Everything lives in `~/.config/herdr-app` (or `$HERDR_APP_HOME`): `layouts/orcha.json`, `themes/orcha-*.json`, `mods/orcha/`, orcha's keys in `keys.json` (only for the orcha layout) and the Matcha theme in `settings.json` if you had none. Herdr's own files and yours are left alone. Orcherd's accounts and settings live in `~/.config/orcherd`, its fuel cache in `~/.cache/orcherd`: apart from the terminal orcha, which Orcherd doesn't need.
 
 ```sh
-cd ~/.config/herdr-app && rm -rf layouts/orcha.json themes/orcha-*.json mods/orcha
+cd ~/.config/herdr-app && rm -rf layouts/orcha.json themes/orcha-*.json mods/orcha ~/.config/orcherd ~/.cache/orcherd
 ```
 
 Then `⌘⇧P` → `layout.switch` back to another layout.
@@ -101,7 +100,7 @@ Then `⌘⇧P` → `layout.switch` back to another layout.
 ## For contributors
 
 - `mods/orcha/` is the plugin. `main.js` picks the part a layout block asks for; `ui.js` holds the look.
-- `catalog.js` is generated from orcha's `src/orcha_rules.rs`: `python3 gen-catalog.py ../orcha`.
+- `catalog.js` holds the working rules and suggested skills of Settings › Projects: edit it directly.
 - `settings.js` starts from Herdr's settings page: compare with a new Herdr's `frame/settings/main.js` on updates.
 - Animate with Herdr's native `.loop`, `.transition` and `.frames`, never timers.
 - Loop: `sh install.sh`, `herdr-app check ~/.config/herdr-app/mods/orcha`, `herdr-app shot shot.png`. Herdr refuses reloads after many in one run: batch your installs.

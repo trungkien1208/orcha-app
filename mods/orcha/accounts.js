@@ -14,8 +14,8 @@
 // in a .credentials.json), a box on top says so with the one button that
 // fixes it; fuel still reads, but KEEP RUNNING waits for the Keychain.
 //
-// Read from orcha's own files (config.json, the limits cache): opening the
-// popup asks nothing of the network. `r` refreshes through `limits.py json`.
+// Read from Orcherd's own files (config.json, the limits cache): opening the
+// popup asks nothing of the network. `r` refreshes through `accounts.py json`.
 
 import { div } from "gpui-kit";
 import { v_flex, h_flex, InputState, Input } from "gpui-base";

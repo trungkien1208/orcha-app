@@ -7,7 +7,7 @@
 import { exec, shared, setShared, notify } from "herdr";
 
 /** Bumped at every release, before the tag. */
-export const VERSION = "0.5.3";
+export const VERSION = "0.6.0";
 export const REPO = "trungkien1208/orcherd";
 const EVERY = 6 * 60 * 60 * 1000;
 

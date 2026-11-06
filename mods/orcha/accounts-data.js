@@ -1,18 +1,19 @@
-// orcha's accounts and their fuel, read from orcha's own files (config.json
-// and the limits cache), and what can be done with them: use one, add one,
-// hand a chat to one. Shared by ACCOUNTS, Settings › Accounts, Settings ›
-// Hand-off and the low-fuel watch in the right panel.
+// Orcherd's accounts and their fuel, read from its own files (config.json
+// and the limits cache, see paths.js), and what can be done with them: use
+// one, add one, hand a chat to one. Shared by ACCOUNTS, Settings › Accounts,
+// Settings › Hand-off and the low-fuel watch in the right panel.
 //
-// Signing in and switching go through orcha's extras (`limits.py`), so the
-// Keychain and the shared account folders stay orcha's business.
+// Fuel, signing in and switching go through bin/accounts.py, which ships
+// with this mod: the Keychain and the account folders stay in one place.
 
 import { readTextFile, writeTextFile, exec, hc, home, run, focused, agents, panes } from "herdr";
 import { agentTitle, expandHome } from "./ui.js";
 import { readTable, writeKey } from "./config.js";
+import { configFile, cacheFile, script, makeConfigDir } from "./paths.js";
 import { claudeTranscript, readTerminal } from "./links.js";
 
-const LIMITS = () => `${home()}/.orcha/scripts/limits.py`;
-const CONFIG = () => `${home()}/.config/orcha/config.json`;
+const LIMITS = () => script("accounts.py");
+const CONFIG = () => configFile("config.json");
 
 async function readJson(path) {
   try {
@@ -29,18 +30,18 @@ const pause = (seconds) => exec("sleep", [String(seconds)]);
 // The default account (Settings › Make default) is kept apart from the one in
 // the main folder now (claude-active): chats on the main folder can borrow
 // another account without a restart, and the default stays what it was.
-const DEFAULT_FILE = () => `${home()}/.config/orcha/claude-default`;
+const DEFAULT_FILE = () => configFile("claude-default");
 
 /** Every account with its cached limits, the Claude account in the main
  *  folder now (`active`) and the default one (`main`, the same unless the
  *  main folder's chats are borrowing). */
 export async function readAccounts() {
   const config = await readJson(CONFIG());
-  const active = (await readTextFile(`${home()}/.config/orcha/claude-active`))?.trim() ?? null;
+  const active = (await readTextFile(configFile("claude-active")))?.trim() ?? null;
   const main = (await readTextFile(DEFAULT_FILE()))?.trim() || active;
   const list = [];
   for (const account of config?.accounts ?? []) {
-    const cache = `${home()}/.cache/orcha/limits/${account.id}`;
+    const cache = cacheFile(`limits/${account.id}`);
     list.push({ ...account, limits: (await readJson(`${cache}.json`)) ?? {}, token: await readJson(`${cache}.token.json`) });
   }
   return { list, active, main };
@@ -53,7 +54,7 @@ const span = (ms) => {
   return h < 48 ? `${h}h ${m % 60}m` : `${Math.floor(h / 24)}d ${h % 24}h`;
 };
 
-/** A Claude account's sign-in as limits.py last saw it (its .token.json):
+/** A Claude account's sign-in as accounts.py last saw it (its .token.json):
  *  { signIn, idle, text }, or null when not known (not Claude, not read yet).
  *  The access token runs out every few hours and Claude renews it with the
  *  refresh token on the next chat, so only a missing sign-in asks to sign in. */
@@ -74,7 +75,7 @@ export const needsSignIn = (a, gauges) => tokenState(a)?.signIn ?? !gauges.lengt
  *  minute, without a restart. Null, or why it failed. */
 async function activateAccount(id) {
   const r = await exec("python3", ["-I", LIMITS(), "activate", id]);
-  return r.code === 0 ? null : lastLine(r, "limits.py failed");
+  return r.code === 0 ? null : lastLine(r, "accounts.py failed");
 }
 
 /** Settings › Make default: new chats start on `id`, and so do the ones on
@@ -96,7 +97,7 @@ export async function makeDefault(id) {
 // moving a chat to another account writes the Keychain, so it needs it.
 
 /** { state: ok | file-only | locked | broken, why, files }, or null when
- *  limits.py could not say (an older orcha: then nothing is shown). */
+ *  accounts.py could not say (then nothing is shown). */
 export async function readKeychain() {
   const r = await exec("python3", ["-I", LIMITS(), "keychain"]);
   try {
@@ -116,7 +117,7 @@ export function keychainBlocks(kc) {
 /** The sign-ins Claude left in .credentials.json go into the Keychain. Null, or why not. */
 export async function moveToKeychain() {
   const r = await exec("python3", ["-I", LIMITS(), "keychain-move"]);
-  return r.code === 0 ? null : lastLine(r, "limits.py failed");
+  return r.code === 0 ? null : lastLine(r, "accounts.py failed");
 }
 
 /** A pane beside the focused one asks for the Mac's password and unlocks the Keychain. */
@@ -137,7 +138,7 @@ export async function refreshFuel(fresh = false) {
 }
 
 // The config folder each terminal's Claude reads (CLAUDE_CONFIG_DIR, from its
-// process), or "-" for the main one, as limits.py takes it. One ps for all.
+// process), or "-" for the main one, as accounts.py takes it. One ps for all.
 async function configFolders(terminals) {
   const pids = await Promise.all(
     terminals.map(async (t) => {
@@ -217,10 +218,10 @@ export async function keepRunningOn(account, from) {
   // Borrowing on the main folder: remember the default first, so it stays.
   if (folder === "-" && !(await readTextFile(DEFAULT_FILE()))?.trim()) {
     const { active } = await readAccounts();
-    if (active) await writeTextFile(DEFAULT_FILE(), `${active}\n`, null).catch(() => {});
+    if (active) await makeConfigDir().then(() => writeTextFile(DEFAULT_FILE(), `${active}\n`, null)).catch(() => {});
   }
   const r = await exec("python3", ["-I", LIMITS(), "switch-dir", account.id, folder]);
-  return r.code === 0 ? null : lastLine(r, "limits.py failed");
+  return r.code === 0 ? null : lastLine(r, "accounts.py failed");
 }
 
 /** A new chat on `account`, in a new tab: Claude in the account's own folder,
@@ -260,8 +261,8 @@ export function accountSlug(name) {
     .replace(/^-+|-+$/g, "");
 }
 
-/** Opens a pane beside the focused one that signs `id` in (orcha's
- *  `limits.py login`: the account's own folder, its email filled in). */
+/** Opens a pane beside the focused one that signs `id` in (`accounts.py
+ *  login`: the account's own folder, its email filled in). */
 export function signIn(id) {
   run("pane.split", { direction: "right", argv: ["python3", "-I", LIMITS(), "login", id] });
 }
@@ -274,7 +275,7 @@ export const ACCOUNT_KINDS = [
   { kind: "cursor", label: "Cursor", cli: "cursor-agent" },
 ];
 
-/** Adds an account to orcha's config.json (as orcha's add_to_config does) and
+/** Adds an account to Orcherd's config.json and
  *  opens its sign-in: Claude account `name`, or the one Codex or Cursor
  *  account. Null, or why it failed. */
 export async function addAccount(name, kind = "claude") {
@@ -282,14 +283,15 @@ export async function addAccount(name, kind = "claude") {
   const slug = accountSlug(name);
   if (!one && !slug) return "Give it a name, like personal or work.";
   const id = one ? kind : `claude-${slug}`;
+  await makeConfigDir();
   const before = await readTextFile(CONFIG());
   let config;
   try {
     config = before ? JSON.parse(before) : {};
   } catch {
-    return "orcha's config.json could not be read.";
+    return "Orcherd's config.json could not be read.";
   }
-  if (!config || typeof config !== "object" || Array.isArray(config)) return "orcha's config.json is not an object.";
+  if (!config || typeof config !== "object" || Array.isArray(config)) return "Orcherd's config.json is not an object.";
   const list = (config.accounts ??= []);
   if (!Array.isArray(list)) return "accounts in config.json is not a list.";
   if (one) {
@@ -297,7 +299,7 @@ export async function addAccount(name, kind = "claude") {
     list.push({ id, kind, label: one.label, email: "", dir: null });
   } else {
     if (list.some((a) => a?.id === id || a?.id?.replace(/^claude-/, "") === slug)) return `${id} is already an account.`;
-    list.push({ id, kind: "claude", label: `Claude · ${slug}`, email: "", dir: `~/.ai-accounts/claude/${slug}` });
+    list.push({ id, kind: "claude", label: `Claude · ${slug}`, email: "", dir: `~/.config/orcherd/claude/${slug}` });
   }
   try {
     await writeTextFile(CONFIG(), `${JSON.stringify(config, null, 2)}\n`, before);
@@ -309,18 +311,17 @@ export async function addAccount(name, kind = "claude") {
 }
 
 // Hand-off settings ------------------------------------------------------
-// In orcha's config.toml under [orcha], shared with orcha in the terminal
-// (config/model.rs OrchaConfig).
+// In Orcherd's config.toml (config.js) under [orcha].
 
 export const HANDOFF_DEFAULTS = {
   low_fuel_percent: 10,
   checklist_percent: 0,
-  checklist_file: ".orcha/handoff.md",
+  checklist_file: ".orcherd/handoff.md",
   auto_handoff_percent: 0,
   switch_mode: "ask",
 };
 
-/** The hand-off settings, orcha's defaults filled in. */
+/** The hand-off settings, the defaults filled in. */
 export async function readHandoff() {
   const table = await readTable("orcha");
   const out = { ...HANDOFF_DEFAULTS };
@@ -408,7 +409,7 @@ export async function handOff(account, { checklistFile = HANDOFF_DEFAULTS.checkl
   const command = AGENT_RUN[account.kind];
   if (!command) return `orcha can't hand a chat to ${account.kind}.`;
   const notes = await buildNotes(from, checklistFile);
-  const folder = `${home()}/.cache/orcha/handoff`;
+  const folder = cacheFile("handoff");
   await sh('mkdir -p "$1" && chmod 700 "$1"', folder);
   const path = `${folder}/${new Date().toISOString().replace(/[:.]/g, "-")}-${account.kind}.md`;
   try {
@@ -448,7 +449,8 @@ export async function restartOn(account) {
     return `${name}'s folder holds ${other} now. Keep the chat running on ${name} instead.`;
   }
   if (dir) await exec("python3", ["-I", LIMITS(), "link", account.id]);
-  const env = dir ? `env CLAUDE_CONFIG_DIR=${dir}` : "env -u CLAUDE_CONFIG_DIR";
+  // Typed into the pane's shell: the folder quoted, so a space or a quote in it stays a name.
+  const env = dir ? `env CLAUDE_CONFIG_DIR='${dir.replace(/'/g, "'\\''")}'` : "env -u CLAUDE_CONFIG_DIR";
   // Ctrl+C twice leaves Claude Code; then the shell continues the chat.
   await hc(["keys", from.terminal, "ctrl+c"]);
   await pause(0.4);

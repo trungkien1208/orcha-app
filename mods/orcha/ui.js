@@ -240,14 +240,14 @@ export function ago(ms) {
   return `${Math.floor(m / 1440)}d`;
 }
 
-/** The percent of a plan limit left (0–100), from orcha's cache pair
+/** The percent of a plan limit left (0–100), from Orcherd's cache pair
  *  [percent used, reset at], or null. */
 export function fuelLeft(entry) {
   return Array.isArray(entry) && !Number.isNaN(Number(entry[0])) ? Math.max(0, Math.min(100, Math.round(100 - Number(entry[0])))) : null;
 }
 
 /** A plan limit as ten segments over the full width, the percent left, and
- *  when it resets ("resets in 3h 06m · 00:52"). `entry` is orcha's cache
+ *  when it resets ("resets in 3h 06m · 00:52"). `entry` is Orcherd's cache
  *  pair [percent used, reset at (unix seconds)]. */
 export function fuelGauge(k, name, entry) {
   const left = fuelLeft(entry);

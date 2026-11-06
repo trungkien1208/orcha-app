@@ -1,10 +1,11 @@
-// orcha's config.toml (shared with orcha in the terminal): one table read or
-// one `key = value` line written at a time; the rest of the file is kept as
-// it is. Enough TOML for orcha's flat settings, not a full parser.
+// Orcherd's config.toml (paths.js): one table read or one `key = value` line
+// written at a time; the rest of the file is kept as it is. Enough TOML for
+// Orcherd's flat settings, not a full parser.
 
-import { readTextFile, writeTextFile, home } from "herdr";
+import { readTextFile, writeTextFile } from "herdr";
+import { configFile, makeConfigDir } from "./paths.js";
 
-const TOML = () => `${home()}/.config/orcha/config.toml`;
+const TOML = () => configFile("config.toml");
 
 // Where [name] starts and ends in `lines`, or null.
 function section(lines, name) {
@@ -64,6 +65,7 @@ export async function writeKey(name, key, value) {
     }
   }
   try {
+    await makeConfigDir();
     await writeTextFile(TOML(), lines.join("\n"), before);
     return null;
   } catch {
